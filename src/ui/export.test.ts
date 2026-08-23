@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { RAYON } from '@/bot/repere'
 import { SHAPES } from '@/bot/skins'
+import { normalizeKumoDesign } from '@/bot/kumo'
 import {
   ACTIONS,
   BLANC,
@@ -72,12 +73,21 @@ describe('cadre d export', () => {
   it('agrandit le cadre pour une silhouette Kumo poussee aux limites', () => {
     const normal = Number(viewBoxAvatar('kumo').split(' ')[2])
     const extreme = Number(
-      viewBoxAvatar('kumo', {
+      viewBoxAvatar(
+        'kumo',
+        normalizeKumoDesign({
         bodyAspect: -1,
-        legLength: 1.15,
-        legThickness: 1.2,
-        legSpread: 1
-      }).split(' ')[2]
+          legLength: 1.3,
+          legThickness: 1.35,
+          legStyle: 'petal',
+          legs: [
+            { angle: -160, reach: 1.35, bend: -1 },
+            { angle: -20, reach: 1.35, bend: 1 },
+            { angle: 40, reach: 1.35, bend: -1 },
+            { angle: 140, reach: 1.35, bend: 1 }
+          ]
+        })
+      ).split(' ')[2]
     )
     expect(extreme).toBeGreaterThan(normal)
     expect(viewBoxAvatar('cercle')).toBe(viewBoxExport())

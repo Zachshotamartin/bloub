@@ -25,8 +25,8 @@ import {
   designKumoAttachments,
   designKumoBody,
   kumoLegTransform,
-  type KumoAttachment,
   type KumoDesign,
+  type KumoLegGeometry,
   type KumoMotion
 } from '@/bot/kumo'
 
@@ -109,12 +109,10 @@ const shapeRadii = computed(() => {
   if (!selected) return null
   return selected.id === 'kumo' ? designKumoBody(selected.radii, props.kumoDesign) : selected.radii
 })
-const attachments = computed(() => {
+const attachments = computed<KumoLegGeometry[]>(() => {
   const selected = skin.value
   if (!selected?.attachments) return []
-  return selected.id === 'kumo'
-    ? designKumoAttachments(selected.attachments, props.kumoDesign)
-    : selected.attachments
+  return selected.id === 'kumo' ? designKumoAttachments(selected.attachments, props.kumoDesign) : []
 })
 const ink = computed(() => COLOR_BY_ID.get(props.color)?.hex ?? '#0a0a0c')
 const expression = computed(() => EXPRESSION_BY_ID.get(props.expression) ?? null)
@@ -519,7 +517,7 @@ function dotAttrs(dot: BotFrame['dots'][number]) {
     : { ...common, cx: dot.x, cy: dot.y, r: dot.r }
 }
 
-function legTransform(attachment: KumoAttachment, index: number) {
+function legTransform(attachment: KumoLegGeometry, index: number) {
   return kumoLegTransform(attachment, index, renderedAt.value, props.legMotion, R)
 }
 </script>
@@ -622,16 +620,14 @@ function legTransform(attachment: KumoAttachment, index: number) {
         :data-kumo-leg="i"
         :transform="legTransform(attachment, i)"
       >
-        <ellipse
-          :cx="attachment.cx * R"
-          :cy="attachment.cy * R"
-          :rx="attachment.rx * R"
-          :ry="attachment.ry * R"
-          :transform="`rotate(${attachment.rotation} ${attachment.cx * R} ${attachment.cy * R})`"
+        <path
+          :d="attachment.d"
+          :transform="`scale(${R})`"
           :fill="ink"
           :stroke="skin?.outline?.color"
           :stroke-width="skin?.outline?.width"
           stroke-linejoin="round"
+          vector-effect="non-scaling-stroke"
         />
       </g>
     </g>

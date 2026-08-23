@@ -6,7 +6,7 @@ import {
   superellipseProfile,
   unionOfCirclesProfile
 } from './shape'
-import type { KumoAttachment } from './kumo'
+import { DEFAULT_KUMO_LEGS, type KumoAttachment } from './kumo'
 
 /**
  * Formes et couleurs proposees par le personnalisateur du bot.
@@ -79,10 +79,10 @@ const cloud = normalize(
  * valeurs sont un GABARIT, pas le dessin final : `kumo.ts` les transforme selon
  * les proportions choisies par l'utilisateur.
  *
- * Les quatre pattes restent des ellipses distinctes (`attachments`) : les forcer
+ * Les quatre pattes restent des paths distincts (`attachments`) : les forcer
  * dans le profil radial les relierait au centre par des pointes. Le profil ne
  * porte donc que le corps, ce qui preserve aussi les morphs du moteur et laisse
- * chaque morceau du SVG exporte editable.
+ * chaque morceau du SVG exporte editable et mobile.
  */
 const kumo = normalize(
   unionOfCirclesProfile([{ x: -0.05, y: -0.04, r: 0.98 }]),
@@ -102,13 +102,7 @@ export const SHAPES: BotShape[] = [
   {
     id: 'kumo',
     radii: kumo,
-    attachments: [
-      { cx: 0.62, cy: -0.75, rx: 0.19, ry: 0.27, rotation: 52 },
-      { cx: 0.94, cy: -0.28, rx: 0.28, ry: 0.18, rotation: 4 },
-      { cx: -0.82, cy: 0.68, rx: 0.18, ry: 0.27, rotation: 36 },
-      { cx: -0.42, cy: 0.96, rx: 0.21, ry: 0.28, rotation: 4 }
-    ],
-    outline: { color: '#111318', width: 3.5 },
+    attachments: DEFAULT_KUMO_LEGS.map((leg) => ({ ...leg })),
     eyeColor: '#111318'
   },
   { id: 'cercle', radii: new Array(PROFILE_SAMPLES).fill(1) },

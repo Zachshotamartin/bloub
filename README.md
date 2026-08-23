@@ -1,8 +1,9 @@
 # Kumo Logo Studio
 
 An interactive builder for Kumo's four-legged, spider-like logo. The default
-mark combines a configurable gray body, four editable vector legs, a dark face
-and a clean outline. Body proportions, leg geometry, movement, expression and colour can all be changed
+mark combines a configurable gray body, four editable borderless vector legs, and a dark face.
+Drag each leg around the body, tune its reach and bend, choose a limb language and stance, then shape
+its motion with continuous or break-based rhythms. Body proportions, movement, expression and colour can all be changed
 before exporting PNG, SVG, animated SVG, GIF or MP4.
 
 The animation engine comes from the original `bloub` project: one radial SVG
