@@ -87,9 +87,15 @@ const elapsed = defineModel<number>('elapsed', { default: 0 })
 const R = RAYON
 const VB = DEMI_VIEWBOX
 
-const shapeRadii = computed(() => SHAPE_BY_ID.get(props.shape)?.radii ?? null)
+const skin = computed(() => SHAPE_BY_ID.get(props.shape) ?? null)
+const shapeRadii = computed(() => skin.value?.radii ?? null)
 const ink = computed(() => COLOR_BY_ID.get(props.color)?.hex ?? '#0a0a0c')
 const expression = computed(() => EXPRESSION_BY_ID.get(props.expression) ?? null)
+const bodyUsesSkin = computed(() => STATE_BY_ID.get(state.value)?.baseBody ?? false)
+const bodyTransform = computed(() => {
+  const transform = frame.value.bodyTransform
+  return `translate(${transform.x} ${transform.y}) scale(${transform.sx} ${transform.sy}) rotate(${transform.rotation})`
+})
 
 const engine = new BotEngine(R, state.value, shapeRadii.value, expression.value)
 const frame = shallowRef<BotFrame>(engine.sample(props.frozenAt ?? 0))
@@ -564,6 +570,31 @@ function dotAttrs(dot: BotFrame['dots'][number]) {
       />
     </g>
 
+    <!--
+      Les quatre pattes du logo Kumo sont des formes distinctes, comme dans la
+      source de `../Kumo`. Elles suivent exactement la transformation du corps mais restent
+      derriere lui, de sorte que les jonctions et le contour restent propres.
+    -->
+    <g
+      v-if="bodyUsesSkin && skin?.attachments?.length"
+      :opacity="frame.bodyAlpha"
+      :transform="bodyTransform"
+    >
+      <ellipse
+        v-for="(attachment, i) in skin.attachments"
+        :key="`skin-${i}`"
+        :cx="attachment.cx * R"
+        :cy="attachment.cy * R"
+        :rx="attachment.rx * R"
+        :ry="attachment.ry * R"
+        :transform="`rotate(${attachment.rotation} ${attachment.cx * R} ${attachment.cy * R})`"
+        :fill="ink"
+        :stroke="skin.outline?.color"
+        :stroke-width="skin.outline?.width"
+        stroke-linejoin="round"
+      />
+    </g>
+
     <g :opacity="frame.bodyAlpha">
       <!--
         Fond opaque a la forme exacte du corps, sous le corps lui-meme.
@@ -583,6 +614,23 @@ function dotAttrs(dot: BotFrame['dots'][number]) {
       <g :mask="`url(#${maskId})`">
         <rect :x="-VB" :y="-VB" :width="VB * 2" :height="VB * 2" :fill="ink" />
       </g>
+      <path
+        v-if="bodyUsesSkin && skin?.outline"
+        :d="frame.bodyPath"
+        fill="none"
+        :stroke="skin.outline.color"
+        :stroke-width="skin.outline.width"
+        stroke-linejoin="round"
+      />
+      <!-- Le visage Kumo est sombre sur un corps clair ; les autres skins gardent des trous. -->
+      <path
+        v-for="(eye, i) in bodyUsesSkin && skin?.eyeColor ? frame.eyes : []"
+        :key="`skin-eye-${i}`"
+        :d="eye.d"
+        :transform="eye.matrix"
+        :opacity="eye.alpha"
+        :fill="skin?.eyeColor"
+      />
     </g>
 
     <g v-if="!frame.dotsBehind">

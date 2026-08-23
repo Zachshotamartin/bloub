@@ -4,7 +4,7 @@ import { langue, LANGUES, t } from '@/i18n'
 
 /** Comptes de l'auteur. */
 const X = 'https://x.com/worlz_'
-const GITHUB = 'https://github.com/jeremy-prt/bloub'
+const GITHUB = 'https://github.com/Zachshotamartin/bloub'
 
 /**
  * « Cree par Jeremy » : le nom est un lien, donc la phrase se coupe autour de

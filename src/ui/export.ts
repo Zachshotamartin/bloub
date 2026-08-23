@@ -19,7 +19,18 @@ const MARGE = 1.08
  * ecrit en dur : ajouter une forme plus large deplace le cadre tout seul au lieu
  * de se faire rogner.
  */
-export const RAYON_MAX = Math.max(...SHAPES.map((forme) => Math.max(...forme.radii)))
+export function etendueDeForme(forme: (typeof SHAPES)[number]) {
+  const corps = Math.max(...forme.radii)
+  const accessoires =
+    forme.attachments?.map((a) => {
+      // Le cercle circonscrit reste juste quelle que soit la rotation de l'ellipse.
+      const r = Math.hypot(a.rx, a.ry)
+      return Math.max(Math.abs(a.cx) + r, Math.abs(a.cy) + r)
+    }) ?? []
+  return Math.max(corps, ...accessoires)
+}
+
+export const RAYON_MAX = Math.max(...SHAPES.map(etendueDeForme))
 
 /**
  * Demi-cote du cadre d'export, en unites de viewBox.
@@ -254,10 +265,15 @@ export function nomFichier(
       .replace(/[^a-z0-9]+/g, '-')
       .replace(/^-+|-+$/g, '')
       .slice(0, 40)
-  const morceaux = [propre(forme), propre(expression), propre(couleur), propre(suffixe)].filter(
-    Boolean
-  )
-  return `bloub${morceaux.map((m) => `-${m}`).join('')}.${extension}`
+  const marqueKumo = forme === 'kumo'
+  const morceaux = [
+    ...(marqueKumo ? [] : [propre(forme)]),
+    propre(expression),
+    propre(couleur),
+    propre(suffixe)
+  ].filter(Boolean)
+  const prefixe = marqueKumo ? 'kumo-logo' : 'kumo'
+  return `${prefixe}${morceaux.map((m) => `-${m}`).join('')}.${extension}`
 }
 
 /**

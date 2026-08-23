@@ -12,7 +12,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
-    <title>bloub, avatar SVG animé</title>
+    <title>Kumo — studio de logo animé</title>
     <!--
       « bloub » est le nom du produit ; « l'avatar du bot de x.ai » est la
       matiere reproduite. Les deux doivent rester distincts : le projet n'est
@@ -20,7 +20,7 @@
     -->
     <meta
       name="description"
-      content="bloub recrée en SVG animé l'avatar du bot de x.ai : une forme noire qui morphe entre 14 états, relevés au pixel sur la vidéo. Sans librairie d'animation."
+      content="Créez le logo Kumo à quatre pattes, personnalisez sa forme, son expression et sa couleur, puis exportez-le en PNG, SVG, GIF ou vidéo."
     />
 
     <!--
@@ -31,12 +31,12 @@
 
     <!-- Open Graph : attribut `property`, alors que les balises X prennent `name` -->
     <meta property="og:type" content="website" />
-    <meta property="og:title" content="bloub, avatar SVG animé" />
+    <meta property="og:title" content="Kumo — studio de logo animé" />
     <meta
       property="og:description"
-      content="D'après l'avatar du bot de x.ai : une forme noire qui morphe entre 14 états, relevés au pixel sur la vidéo de référence."
+      content="Un studio SVG pour construire, animer et exporter le logo Kumo à quatre pattes."
     />
-    <meta property="og:site_name" content="bloub" />
+    <meta property="og:site_name" content="Kumo Logo Studio" />
     <meta property="og:locale" content="fr_FR" />
     <meta property="og:locale:alternate" content="en_US" />
     <meta property="og:locale:alternate" content="zh_CN" />
@@ -53,15 +53,15 @@
       Les trois URL ci-dessous sont donc a reprendre si le domaine change, elles
       ne se deduisent de rien.
     -->
-    <link rel="canonical" href="https://bloub.vercel.app/" />
-    <meta property="og:url" content="https://bloub.vercel.app/" />
-    <meta property="og:image" content="https://bloub.vercel.app/og.png" />
+    <link rel="canonical" href="https://kumo-logo-studio.vercel.app/" />
+    <meta property="og:url" content="https://kumo-logo-studio.vercel.app/" />
+    <meta property="og:image" content="https://kumo-logo-studio.vercel.app/og.png" />
     <meta property="og:image:type" content="image/png" />
     <meta property="og:image:width" content="1200" />
     <meta property="og:image:height" content="630" />
     <meta
       property="og:image:alt"
-      content="L'avatar noir du bot et le logotype BLOUB, sur fond clair"
+      content="Le logo Kumo gris à quatre pattes sur fond clair"
     />
 
     <!--
@@ -70,15 +70,11 @@
       Le `.ico` reste necessaire en 2026 : Safari ne lit le SVG qu'a partir de
       la version 26, et iOS pas du tout avant 18.7.
 
-      Il embarque 16, 32 et 48 (48 pour les onglets a fort zoom et le raccourci
-      Windows), chaque taille rendue depuis le SVG plutot que reechantillonnee.
-      Les trois tailles sont declarees : avec `sizes="32x32"` seul, un
-      navigateur qui cherche une icone de 48 reechantillonne le 32 au lieu
-      d'ouvrir l'image de 48 qui est dans le fichier. Le `.ico` ignore
-      `prefers-color-scheme`, il porte la seule variante claire (corps #0a0a0c,
-      yeux troues), d'ou le SVG juste apres, qui lui s'inverse.
+      Le repli `.ico` porte une source de 48 px, assez definie pour les onglets a
+      fort zoom et les raccourcis Windows ; les navigateurs la reduisent aux
+      tailles plus petites. Le SVG juste apres reste la source preferee.
     -->
-    <link rel="icon" href="/favicon.ico" sizes="16x16 32x32 48x48" />
+    <link rel="icon" href="/favicon.ico" sizes="48x48" />
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
     <!-- iOS aplatit la transparence en noir : celui-la est opaque, fond #f9f9f9 -->
     <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />

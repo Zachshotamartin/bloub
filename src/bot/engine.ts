@@ -23,6 +23,14 @@ export interface RenderedEye {
 export interface BotFrame {
   bodyPath: string
   bodyAlpha: number
+  /** Transformation finale du repere du corps, pour ses accessoires de marque. */
+  bodyTransform: {
+    x: number
+    y: number
+    rotation: number
+    sx: number
+    sy: number
+  }
   eyes: RenderedEye[]
   dots: DotRender[]
   /** true = les points passent derriere le corps (particules de l'eclatement) */
@@ -542,6 +550,13 @@ export class BotEngine {
     return {
       bodyPath,
       bodyAlpha: pose.bodyAlpha,
+      bodyTransform: {
+        x: sil.cx * R,
+        y: sil.cy * R,
+        rotation: (sil.rot * 180) / Math.PI,
+        sx: sil.sx,
+        sy: sil.sy
+      },
       eyes,
       dots,
       dotsBehind: pose.dotsBehind,
@@ -555,4 +570,3 @@ export class BotEngine {
     }
   }
 }
-

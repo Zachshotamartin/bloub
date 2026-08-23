@@ -7,9 +7,9 @@ import type fr from './fr'
  */
 const en: typeof fr = {
   app: {
-    name: 'bloub',
-    title: 'bloub — animated SVG avatar',
-    botAria: 'Animated bloub avatar'
+    name: 'Kumo logo studio',
+    title: 'Kumo — animated logo studio',
+    botAria: 'Animated Kumo logo preview'
   },
 
   gallery: {
@@ -18,14 +18,14 @@ const en: typeof fr = {
 
   rail: {
     nav: 'Sections',
-    customize: 'Customise',
+    customize: 'Build logo',
     animations: 'Animations',
     settings: 'Settings'
   },
 
   panel: {
     animations: 'Animation',
-    shape: 'Shape',
+    shape: 'Body and legs',
     expression: 'Expression',
     color: 'Colour'
   },
@@ -133,6 +133,7 @@ const en: typeof fr = {
   },
 
   shapes: {
+    kumo: 'Kumo spider',
     cercle: 'Circle',
     galet: 'Pebble',
     squircle: 'Squircle',
@@ -144,6 +145,7 @@ const en: typeof fr = {
   },
 
   colors: {
+    kumo: 'Kumo grey',
     encre: 'Ink',
     creme: 'Cream',
     brun: 'Brown',

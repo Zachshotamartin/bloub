@@ -18,6 +18,7 @@ import {
   ACTION_DEFAUT,
   DEMI_CADRE,
   RAYON_MAX,
+  etendueDeForme,
   nomFichier,
   sansCommentaires,
   viewBoxExport
@@ -37,7 +38,7 @@ describe('cadre d export', () => {
    */
   it('contient toutes les formes du personnalisateur', () => {
     for (const forme of SHAPES) {
-      const rayon = Math.max(...forme.radii) * RAYON
+      const rayon = etendueDeForme(forme) * RAYON
       expect(rayon, `la forme « ${forme.id} » depasse du cadre`).toBeLessThan(DEMI_CADRE)
     }
   })
@@ -59,7 +60,7 @@ describe('cadre d export', () => {
     // Le squircle culmine a 1.15 sur sa diagonale : un cadre calcule sur le
     // cercle seul (1.0) le rognerait.
     expect(RAYON_MAX).toBeGreaterThan(1)
-    expect(RAYON_MAX).toBe(Math.max(...SHAPES.map((f) => Math.max(...f.radii))))
+    expect(RAYON_MAX).toBe(Math.max(...SHAPES.map(etendueDeForme)))
   })
 
   it('produit un viewBox carre centre sur la boule', () => {
@@ -110,13 +111,14 @@ describe('catalogue des exports', () => {
 describe('export d un cycle', () => {
   /*
    * LE piege du cycle : les anneaux des etats animes montent a 1,4 fois le rayon
-   * de la boule, soit 140 — au-dela du cadre serre de l'export fixe, qui les
-   * rognerait. Un cycle doit donc partir sur le viewBox de l'ecran.
+   * de la boule, soit 140. La marque Kumo a elle aussi une patte qui approche
+   * cette limite, mais le cycle doit garder le viewBox d'ecran complet : ses
+   * decors bougent et ne peuvent pas etre cadres sur le seul skin courant.
    */
   it('exporte sur le viewBox de l ecran, pas sur le cadre serre', () => {
     const RAYON_ARCS = 140
     expect(DEMI_ECRAN).toBeGreaterThan(RAYON_ARCS)
-    expect(DEMI_CADRE).toBeLessThan(RAYON_ARCS)
+    expect(DEMI_ECRAN).toBeGreaterThan(DEMI_CADRE)
   })
 
 
@@ -205,8 +207,9 @@ describe('nettoyage du markup', () => {
 
 describe('nom de fichier', () => {
   it('se construit sur les ids et pas sur les libelles', () => {
-    expect(nomFichier('goutte', 'neutre', 'encre', 'png')).toBe('bloub-goutte-neutre-encre.png')
-    expect(nomFichier('cercle', 'hilare', 'violet', 'svg')).toBe('bloub-cercle-hilare-violet.svg')
+    expect(nomFichier('goutte', 'neutre', 'encre', 'png')).toBe('kumo-goutte-neutre-encre.png')
+    expect(nomFichier('cercle', 'hilare', 'violet', 'svg')).toBe('kumo-cercle-hilare-violet.svg')
+    expect(nomFichier('kumo', 'neutre', 'kumo', 'svg')).toBe('kumo-logo-neutre-kumo.svg')
   })
 
   /*
@@ -223,11 +226,11 @@ describe('nom de fichier', () => {
 
   /* Un nom de montage doit rester lisible : « Cycle par défaut », pas « cyclepardfaut ». */
   it('translittere les accents et separe les mots', () => {
-    expect(nomFichier('Cycle par défaut', '', '', 'mp4')).toBe('bloub-cycle-par-defaut.mp4')
-    expect(nomFichier('Été 2026', '', '', 'gif')).toBe('bloub-ete-2026.gif')
+    expect(nomFichier('Cycle par défaut', '', '', 'mp4')).toBe('kumo-cycle-par-defaut.mp4')
+    expect(nomFichier('Été 2026', '', '', 'gif')).toBe('kumo-ete-2026.gif')
   })
 
   it('survit a des ids vides', () => {
-    expect(nomFichier('', '', '', 'png')).toBe('bloub.png')
+    expect(nomFichier('', '', '', 'png')).toBe('kumo.png')
   })
 })
