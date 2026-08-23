@@ -5,6 +5,7 @@ import {
   designKumoAttachments,
   designKumoBody,
   kumoLegMotionAt,
+  kumoLegPathAt,
   kumoLegTransform,
   kumoMotionEnvelope,
   normalizeKumoDesign,
@@ -17,14 +18,14 @@ const extent = (leg: ReturnType<typeof designKumoAttachments>[number]) =>
   Math.max(Math.abs(leg.minX), Math.abs(leg.maxX), Math.abs(leg.minY), Math.abs(leg.maxY))
 
 describe('configurable Kumo silhouette', () => {
-  it('builds exactly four finite, editable Bezier legs', () => {
+  it('builds exactly four finite, editable filled-vector legs', () => {
     const legs = designKumoAttachments(
       kumo.attachments!,
       normalizeKumoDesign({
         bodyAspect: 0.8,
         legLength: 1.25,
         legThickness: 0.7,
-        legStyle: 'petal'
+        legStyle: 'paddle'
       })
     )
     expect(legs).toHaveLength(4)
@@ -55,12 +56,22 @@ describe('configurable Kumo silhouette', () => {
     )
     expect(extent(long[0]!)).toBeGreaterThan(extent(short[0]!))
 
-    const silk = designKumoAttachments(kumo.attachments!, DEFAULT_KUMO_DESIGN)
+    const taper = designKumoAttachments(kumo.attachments!, DEFAULT_KUMO_DESIGN)
+    const paddle = designKumoAttachments(
+      kumo.attachments!,
+      normalizeKumoDesign({ ...DEFAULT_KUMO_DESIGN, legStyle: 'paddle' })
+    )
     const knuckle = designKumoAttachments(
       kumo.attachments!,
       normalizeKumoDesign({ ...DEFAULT_KUMO_DESIGN, legStyle: 'knuckle' })
     )
-    expect(knuckle[0]!.d).not.toBe(silk[0]!.d)
+    expect(new Set([taper[0]!.d, paddle[0]!.d, knuckle[0]!.d]).size).toBe(3)
+    expect(taper[0]!.d).not.toMatch(/ [LQ] /)
+    expect(paddle[0]!.d).not.toMatch(/ [LQ] /)
+    expect(knuckle[0]!.d).toMatch(/ L .+ C .+ L .+ C .+ L .+ C .+ L /)
+    expect(knuckle[0]!.d).not.toContain(' Q ')
+    expect(knuckle[0]!.knuckle).toBeDefined()
+    expect([knuckle[0]!.jointX, knuckle[0]!.jointY].every(Number.isFinite)).toBe(true)
   })
 
   it('moves one leg around the body without moving the other three', () => {
@@ -86,8 +97,17 @@ describe('configurable Kumo silhouette', () => {
       legStyle: 'not-real' as never,
       legs: [{ angle: 725, reach: 9, bend: -8 }]
     })
-    expect(normalized).toMatchObject({ bodyAspect: 1, legLength: 0.72, legStyle: 'silk' })
+    expect(normalized).toMatchObject({
+      bodyAspect: 1,
+      legLength: 0.72,
+      legStyle: 'taper',
+      eyeColor: DEFAULT_KUMO_DESIGN.eyeColor
+    })
     expect(normalized.legs[0]).toEqual({ angle: 5, reach: 1.35, bend: -1 })
+    expect(normalizeKumoDesign({ legStyle: 'silk' }).legStyle).toBe('taper')
+    expect(normalizeKumoDesign({ legStyle: 'petal' }).legStyle).toBe('paddle')
+    expect(normalizeKumoDesign({ eyeColor: '#B84D3E' }).eyeColor).toBe('#b84d3e')
+    expect(normalizeKumoDesign({ eyeColor: 'red' }).eyeColor).toBe(DEFAULT_KUMO_DESIGN.eyeColor)
     expect(parseKumoDesign('{bad json')).toEqual(DEFAULT_KUMO_DESIGN)
     expect(parseKumoDesign('{"legSpread":1}').legs[0]!.angle).not.toBe(
       DEFAULT_KUMO_DESIGN.legs[0]!.angle
@@ -107,8 +127,11 @@ describe('Kumo leg movement', () => {
     expect(kumoLegMotionAt(2.4, 0, motion)).not.toEqual(kumoLegMotionAt(2.4, 1, motion))
     expect(kumoLegMotionAt(2.4, 0, { amount: 0, speed: 2, rhythm: 'doze' })).toEqual({
       rotation: 0,
+      jointRotation: 0,
       reach: 0
     })
+    expect(kumoLegMotionAt(2.4, 0, motion).reach).toBe(0)
+    expect(Math.abs(kumoLegMotionAt(2.4, 0, motion).rotation)).toBeLessThan(6)
   })
 
   it('adds deterministic soft breaks without changing continuous flow', () => {
@@ -122,10 +145,37 @@ describe('Kumo leg movement', () => {
 
   it('emits a finite SVG transform around the hidden shoulder', () => {
     const leg = designKumoAttachments(kumo.attachments!, DEFAULT_KUMO_DESIGN)[0]!
-    expect(
-      kumoLegTransform(leg, 0, 1.25, { amount: 1, speed: 1, rhythm: 'flow' }, 100)
-    ).toMatch(
+    const transform = kumoLegTransform(
+      leg,
+      0,
+      1.25,
+      { amount: 1, speed: 1, rhythm: 'flow' },
+      100
+    )
+    expect(transform).toMatch(
       /^translate\(-?[\d.]+ -?[\d.]+\) rotate\(-?[\d.]+ -?[\d.]+ -?[\d.]+\)$/
     )
+    expect(transform).toMatch(/^translate\(0 0\)/)
+  })
+
+  it('animates every shoulder and every Knuckle elbow', () => {
+    const motion = { amount: 1, speed: 1.1, rhythm: 'flow' as const }
+    const knuckles = designKumoAttachments(
+      kumo.attachments!,
+      normalizeKumoDesign({ legStyle: 'knuckle' })
+    )
+    for (let index = 0; index < 4; index++) {
+      const before = kumoLegMotionAt(0.2, index, motion)
+      const after = kumoLegMotionAt(0.9, index, motion)
+      expect(after.rotation).not.toBe(before.rotation)
+      expect(after.jointRotation).not.toBe(before.jointRotation)
+      expect(after.reach).toBe(0)
+      expect(kumoLegPathAt(knuckles[index]!, index, 0.9, motion)).not.toBe(
+        kumoLegPathAt(knuckles[index]!, index, 0.2, motion)
+      )
+      expect(kumoLegPathAt(knuckles[index]!, index, 1, { ...motion, amount: 0 })).toBe(
+        knuckles[index]!.d
+      )
+    }
   })
 })

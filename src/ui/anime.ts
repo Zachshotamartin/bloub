@@ -1,6 +1,6 @@
 /**
- * Assemblage de l'animation exportee : un SVG dont les yeux et les quatre
- * pattes Kumo sont animes en CSS.
+ * Assemblage de l'animation exportee : un SVG dont les yeux et les épaules
+ * Kumo sont animés en CSS, et les coudes continus par morphing SVG.
  *
  * Tout est pur — de la chaine vers de la chaine — donc testable en `node` comme le
  * reste de `src/ui/`. C'est la capture des images cles qui a besoin du DOM, et elle
@@ -24,7 +24,7 @@ const ascii = (s: string) => Array.from(s, (c) => c.charCodeAt(0))
  * animee. Une seule source de dessin, donc aucune derive possible — c'est la
  * meme regle que pour l'export fixe.
  *
- * Les yeux et les pattes independantes bougent ; le corps, lui, ne se deplace
+ * Les yeux, les épaules et les contours articulés bougent ; le corps, lui, ne se deplace
  * que de 1,17 unite sur un rayon de 100 en trois secondes, soit environ un pixel
  * et demi a la taille d'export. Le corps reste donc tel quel, ce qui rend le
  * fichier minuscule — tout le poids de l'animation tient dans les matrices des
@@ -38,7 +38,8 @@ export function svgAnime(
   base: string,
   matrices: string[][],
   duree: number,
-  pattes: string[][] = []
+  pattes: string[][] = [],
+  jointures: string[][] = []
 ): string {
   if (matrices.length < 2) throw new Error('il faut au moins deux images cles')
 
@@ -82,9 +83,8 @@ export function svgAnime(
 
   let trouvees = 0
   if (parPatte) {
-    anime = anime.replace(/<g\b[^>]*data-kumo-leg="(\d+)"[^>]*>/g, (tag, raw) => {
-      const index = Number(raw)
-      trouvees++
+    anime = anime.replace(/<g\b[^>]*data-kumo-motion="[^"]*"[^>]*>/g, (tag) => {
+      const index = trouvees++
       return tag.replace(/transform="[^"]*"/, `class="patte${index}"`)
     })
     if (trouvees !== parPatte) {
@@ -98,6 +98,34 @@ export function svgAnime(
       .join('')
     return `@keyframes patte${patte}{${etapes}}`
   })
+
+  const parJointure = jointures[0]?.length ?? 0
+  if (jointures.length && jointures.length !== matrices.length) {
+    throw new Error(`${matrices.length} images d yeux, ${jointures.length} images de jointures`)
+  }
+  for (const image of jointures) {
+    if (image.length !== parJointure) {
+      throw new Error('nombre de jointures variable entre les images')
+    }
+  }
+  let jointuresTrouvees = 0
+  if (parJointure) {
+    anime = anime.replace(/<path\b[^>]*data-kumo-knuckle="(\d+)"[^>]*>/g, (tag, raw) => {
+      const index = Number(raw)
+      const aller = jointures.map((image) => image[index]!)
+      const allerRetour = [...aller, ...aller.slice(0, -1).reverse()]
+      const animate =
+        `<animate attributeName="d" dur="${duree * 2}s" repeatCount="indefinite" ` +
+        `calcMode="linear" values="${allerRetour.join(';')}"/>`
+      jointuresTrouvees++
+      return tag.endsWith('/>') ? `${tag.slice(0, -2)}>${animate}</path>` : `${tag}${animate}`
+    })
+    if (jointuresTrouvees !== parJointure) {
+      throw new Error(
+        `${jointuresTrouvees} jointures dans le SVG, ${parJointure} par image cle`
+      )
+    }
+  }
 
   const classes = [
     ...Array.from({ length: n }, (_, i) => `.oeil${i}`),

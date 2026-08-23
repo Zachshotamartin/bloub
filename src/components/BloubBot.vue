@@ -24,6 +24,7 @@ import {
   DEFAULT_KUMO_MOTION,
   designKumoAttachments,
   designKumoBody,
+  kumoLegPathAt,
   kumoLegTransform,
   type KumoDesign,
   type KumoLegGeometry,
@@ -114,7 +115,22 @@ const attachments = computed<KumoLegGeometry[]>(() => {
   if (!selected?.attachments) return []
   return selected.id === 'kumo' ? designKumoAttachments(selected.attachments, props.kumoDesign) : []
 })
+const viewBoxHalf = computed(() => {
+  if (skin.value?.id !== 'kumo') return VB
+  const bodyExtent = Math.max(...(shapeRadii.value ?? [1]))
+  const legExtent = attachments.value.reduce(
+    (largest, leg) =>
+      Math.max(largest, Math.abs(leg.minX), Math.abs(leg.maxX), Math.abs(leg.minY), Math.abs(leg.maxY)),
+    0
+  )
+  // Joint flex can swing the distal tip outside its authored bounds. A fixed
+  // 0.14-radius breathing margin prevents the editable preview from clipping.
+  return Math.max(VB, Math.ceil(R * (Math.max(bodyExtent, legExtent) + 0.14)))
+})
 const ink = computed(() => COLOR_BY_ID.get(props.color)?.hex ?? '#0a0a0c')
+const kumoEyeColor = computed(() =>
+  skin.value?.id === 'kumo' ? props.kumoDesign.eyeColor : skin.value?.eyeColor
+)
 const expression = computed(() => EXPRESSION_BY_ID.get(props.expression) ?? null)
 const bodyUsesSkin = computed(() => STATE_BY_ID.get(state.value)?.baseBody ?? false)
 const bodyTransform = computed(() => {
@@ -520,6 +536,10 @@ function dotAttrs(dot: BotFrame['dots'][number]) {
 function legTransform(attachment: KumoLegGeometry, index: number) {
   return kumoLegTransform(attachment, index, renderedAt.value, props.legMotion, R)
 }
+
+function legPath(attachment: KumoLegGeometry, index: number) {
+  return kumoLegPathAt(attachment, index, renderedAt.value, props.legMotion)
+}
 </script>
 
 <template>
@@ -527,7 +547,7 @@ function legTransform(attachment: KumoLegGeometry, index: number) {
     ref="svg"
     :width="props.size"
     :height="props.size"
-    :viewBox="`${-VB} ${-VB} ${VB * 2} ${VB * 2}`"
+    :viewBox="`${-viewBoxHalf} ${-viewBoxHalf} ${viewBoxHalf * 2} ${viewBoxHalf * 2}`"
     role="img"
     :aria-label="t('app.botAria')"
   >
@@ -618,10 +638,12 @@ function legTransform(attachment: KumoLegGeometry, index: number) {
         v-for="(attachment, i) in attachments"
         :key="`skin-${i}`"
         :data-kumo-leg="i"
+        data-kumo-motion="shoulder"
         :transform="legTransform(attachment, i)"
       >
         <path
-          :d="attachment.d"
+          :data-kumo-knuckle="attachment.knuckle ? i : undefined"
+          :d="legPath(attachment, i)"
           :transform="`scale(${R})`"
           :fill="ink"
           :stroke="skin?.outline?.color"
@@ -667,7 +689,7 @@ function legTransform(attachment: KumoLegGeometry, index: number) {
         :d="eye.d"
         :transform="eye.matrix"
         :opacity="eye.alpha"
-        :fill="skin?.eyeColor"
+        :fill="kumoEyeColor"
       />
     </g>
 

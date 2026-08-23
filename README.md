@@ -2,13 +2,15 @@
 
 An interactive builder for Kumo's four-legged, spider-like logo. The default
 mark combines a configurable gray body, four editable borderless vector legs, and a dark face.
-Drag each leg around the body, tune its reach and bend, choose a limb language and stance, then shape
-its motion with continuous or break-based rhythms. Body proportions, movement, expression and colour can all be changed
+Drag each leg around the body, tune its reach and bend, choose a constructed limb family and stance, then shape
+its motion with continuous or break-based rhythms. Taper, paddle and continuous-outline knuckle legs have genuinely
+different geometry; Knuckle animates both its hidden shoulder and its smoothly rounded elbow. Body proportions, eye colour,
+movement, expression and colour can all be changed
 before exporting PNG, SVG, animated SVG, GIF or MP4.
 
 The animation engine comes from the original `bloub` project: one radial SVG
 body morphing through 14 measured states, with independently animated eyes and
-four deterministic moving legs, and no animation library.
+four deterministic, shoulder-locked moving legs, and no animation library.
 
 ![The avatar going through idle, wink, orbit and burst](docs/demo.gif)
 

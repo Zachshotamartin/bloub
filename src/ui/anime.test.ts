@@ -21,10 +21,14 @@ const MATRICES = [
 
 const KUMO_BASE = BASE.replace(
   '</svg>',
-  '<g data-kumo-leg="0" transform="translate(0 1) rotate(2 3 4)"><ellipse cx="3" cy="4" rx="2" ry="1"/></g>' +
-    '<g data-kumo-leg="1" transform="translate(1 0) rotate(-2 -3 -4)"><ellipse cx="-3" cy="-4" rx="2" ry="1"/></g>' +
-    '<g data-kumo-leg="2" transform="translate(2 1) rotate(3 2 4)"><ellipse cx="2" cy="4" rx="2" ry="1"/></g>' +
-    '<g data-kumo-leg="3" transform="translate(1 2) rotate(-3 -2 -4)"><ellipse cx="-2" cy="-4" rx="2" ry="1"/></g>' +
+  '<g data-kumo-leg="0" data-kumo-motion="shoulder" transform="translate(0 1) rotate(2 3 4)"><ellipse cx="3" cy="4" rx="2" ry="1"/></g>' +
+    '<g data-kumo-leg="1" data-kumo-motion="shoulder" transform="translate(1 0) rotate(-2 -3 -4)"><ellipse cx="-3" cy="-4" rx="2" ry="1"/></g>' +
+    '<g data-kumo-leg="2" data-kumo-motion="shoulder" transform="translate(2 1) rotate(3 2 4)"><ellipse cx="2" cy="4" rx="2" ry="1"/></g>' +
+    '<g data-kumo-leg="3" data-kumo-motion="shoulder" transform="translate(1 2) rotate(-3 -2 -4)"><ellipse cx="-2" cy="-4" rx="2" ry="1"/></g>' +
+    '<path data-kumo-knuckle="0" d="M 0 0 L 1 0 C 2 0 2 1 3 1 L 4 1 C 5 1 5 2 4 2 L 3 2 C 2 2 2 1 1 1 L 0 1 Z"/>' +
+    '<path data-kumo-knuckle="1" d="M 0 0 L 1 0 C 2 0 2 1 3 1 L 4 1 C 5 1 5 2 4 2 L 3 2 C 2 2 2 1 1 1 L 0 1 Z"/>' +
+    '<path data-kumo-knuckle="2" d="M 0 0 L 1 0 C 2 0 2 1 3 1 L 4 1 C 5 1 5 2 4 2 L 3 2 C 2 2 2 1 1 1 L 0 1 Z"/>' +
+    '<path data-kumo-knuckle="3" d="M 0 0 L 1 0 C 2 0 2 1 3 1 L 4 1 C 5 1 5 2 4 2 L 3 2 C 2 2 2 1 1 1 L 0 1 Z"/>' +
     '<path data-kumo-eye="0" transform="matrix(0.86,-0.32,0.45,0.84,14.85,-27.88)"/>' +
     '<path data-kumo-eye="1" transform="matrix(0.62,-0.05,0.45,0.84,35.2,-29.43)"/>' +
     '</svg>'
@@ -50,6 +54,14 @@ const PATTES = [
     'translate(1 2) rotate(-2 -2 -4)'
   ]
 ]
+
+const JOINTURES = MATRICES.map((_, frame) =>
+  Array.from(
+    { length: 4 },
+    (_, leg) =>
+      `M ${leg} 0 L 1 0 C 2 0 2 ${1 + frame * 0.1} 3 1 L 4 1 C 5 1 5 2 4 2 L 3 2 C 2 2 2 1 1 1 L 0 1 Z`
+  )
+)
 
 describe('svg anime', () => {
   const sortie = svgAnime(BASE, MATRICES, 3)
@@ -110,11 +122,14 @@ describe('svg anime', () => {
   })
 
   it('anime les quatre pattes Kumo et le double rendu sombre des yeux', () => {
-    const kumo = svgAnime(KUMO_BASE, MATRICES, 3, PATTES)
+    const kumo = svgAnime(KUMO_BASE, MATRICES, 3, PATTES, JOINTURES)
     expect(kumo).toContain('class="patte0"')
     expect(kumo).toContain('class="patte3"')
     expect(kumo).toContain('@keyframes patte0{0%{transform:translate(0 1) rotate(2 3 4)}')
     expect(kumo).toContain('.patte3{animation-name:patte3}')
+    expect(kumo.match(/<animate attributeName="d"/g)).toHaveLength(4)
+    expect(kumo).toContain('dur="6s"')
+    expect(kumo).toContain('repeatCount="indefinite"')
     // Each eye class appears once in the mask and once on the dark Kumo overlay.
     expect(kumo.match(/class="oeil0"/g)).toHaveLength(2)
     expect(kumo.match(/class="oeil1"/g)).toHaveLength(2)

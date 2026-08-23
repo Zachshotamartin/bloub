@@ -38,6 +38,10 @@ function pattesDe(svg: SVGSVGElement) {
   return [...svg.querySelectorAll('[data-kumo-leg]')].map((e) => e.getAttribute('transform')!)
 }
 
+function jointuresDe(svg: SVGSVGElement) {
+  return [...svg.querySelectorAll('[data-kumo-knuckle]')].map((e) => e.getAttribute('d')!)
+}
+
 /** Le moteur seul, cale comme `rendAt` le fait : chaque etat date de son offset absolu. */
 function moteurAuMemeInstant(blocs: Block[], t: number) {
   const e = new BotEngine(
@@ -83,6 +87,7 @@ describe('lecteur hors ecran', () => {
         shape: 'kumo',
         color: 'kumo',
         expression: 'neutre',
+        kumoDesign: normalizeKumoDesign({ legStyle: 'knuckle' }),
         legMotion: { amount: 0.9, speed: 1.2, rhythm: 'flow' }
       },
       TAILLE,
@@ -94,6 +99,8 @@ describe('lecteur hors ecran', () => {
     expect(markup).toContain('class="patte3"')
     expect(markup).toContain('@keyframes patte3')
     expect(markup.match(/data-kumo-leg=/g)).toHaveLength(4)
+    expect(markup.match(/data-kumo-knuckle=/g)).toHaveLength(4)
+    expect(markup.match(/<animate attributeName="d"/g)).toHaveLength(4)
   })
 
   it('rejoue les quatre pattes configurees avec le meme temps que les yeux', async () => {
@@ -121,11 +128,17 @@ describe('lecteur hors ecran', () => {
     )
     try {
       const debut = pattesDe(await lecteur.rendre(0))
-      const suite = pattesDe(await lecteur.rendre(0.8))
+      const jointuresDebut = jointuresDe(await lecteur.rendre(0))
+      const imageSuivante = await lecteur.rendre(0.8)
+      const suite = pattesDe(imageSuivante)
+      const jointuresSuite = jointuresDe(imageSuivante)
       expect(debut).toHaveLength(4)
       expect(suite).toHaveLength(4)
       expect(suite).not.toEqual(debut)
+      expect(jointuresDebut).toHaveLength(4)
+      expect(jointuresSuite).not.toEqual(jointuresDebut)
       expect(pattesDe(await lecteur.rendre(0))).toEqual(debut)
+      expect(jointuresDe(await lecteur.rendre(0))).toEqual(jointuresDebut)
     } finally {
       lecteur.ferme()
     }
