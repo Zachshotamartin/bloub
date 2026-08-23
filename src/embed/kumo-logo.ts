@@ -21,25 +21,61 @@ import {
 } from '@/bot/expressions'
 import { blinkScale, eyePoses, liveliness } from '@/bot/face'
 import { clamp, lerp, r2 } from '@/bot/math'
-import { RAYON } from '@/bot/repere'
-import { SHAPE_BY_ID } from '@/bot/skins'
+import { BotEngine, type BotFrame } from '@/bot/engine'
+import { NOTIF_BLUE } from '@/bot/decor'
+import { DEMI_VIEWBOX, RAYON } from '@/bot/repere'
+import { SHAPE_BY_ID, mixHex } from '@/bot/skins'
+import { STATE_BY_ID, type StateId } from '@/bot/states'
 import { capsulePath, closedPath, radiusAtAngle, toPoints, type Silhouette } from '@/bot/shape'
+import { TOUR_TIME, tourLook } from '@/ui/gaze'
 
 const SVG_NS = 'http://www.w3.org/2000/svg'
 const DEFAULT_COLOR = '#d9d9d9'
+const DEFAULT_PAPER = '#f9f9f9'
 const CONTEXTS = ['idle', 'loading', 'success', 'error', 'attention', 'hover'] as const
 const BREAKS = ['stretch', 'scuttle', 'curl'] as const
+const ANIMATION_ALIASES: Record<string, StateId | 'intro' | 'startup'> = {
+  rainbow: 'startup',
+  start: 'startup'
+}
 
 export type KumoContext = (typeof CONTEXTS)[number]
 export type KumoBreak = (typeof BREAKS)[number]
+export type KumoAnimation = StateId | 'intro' | 'startup'
+
+export interface KumoAnimationOptions {
+  /** Seconds spent in the authored state. State-specific safe minima still apply. */
+  duration?: number
+  /** Morph back to the configured live idle instead of cutting at the final frame. */
+  returnToIdle?: boolean
+}
+
+export type KumoAnimationStep =
+  | KumoAnimation
+  | { name: KumoAnimation; duration?: number; returnToIdle?: boolean }
 
 export interface KumoRuntimeConfig {
   color: string
+  paper: string
   expression: string
   design: Partial<KumoDesign>
   motion: Partial<KumoMotion>
   followPointer: boolean
 }
+
+interface ActiveAnimation {
+  name: KumoAnimation
+  engine: BotEngine
+  startedAt: number
+  stateDuration: number
+  totalDuration: number
+  returnAt: number | null
+  returned: boolean
+  eyeTour: boolean
+  resolve: (completed: boolean) => void
+}
+
+let elementUid = 0
 
 export interface KumoRuntimeSnapshot extends KumoRuntimeConfig {
   design: KumoDesign
@@ -104,18 +140,33 @@ export class KumoLogoElement extends HTMLElement {
 
   private readonly shadow: ShadowRoot
   private readonly svg = svgNode('svg')
+  private readonly defs = svgNode('defs')
+  private readonly mask = svgNode('mask')
+  private readonly maskBody = svgNode('path')
+  private readonly maskEyes = [svgNode('path'), svgNode('path')]
+  private readonly maskNotch = svgNode('circle')
+  private readonly backArcs = svgNode('g')
+  private readonly dotsBehind = svgNode('g')
   private readonly scene = svgNode('g')
   private readonly legsGroup = svgNode('g')
+  private readonly bodyPaper = svgNode('path')
   private readonly body = svgNode('path')
   private readonly eyesGroup = svgNode('g')
   private readonly eyeNodes = [svgNode('path'), svgNode('path')]
+  private readonly dotsFront = svgNode('g')
+  private readonly notification = svgNode('circle')
+  private readonly frontArcs = svgNode('g')
   private readonly legNodes: Array<{ group: SVGGElement; path: SVGPathElement }> = []
+  private readonly uid = `kumo-runtime-${++elementUid}`
+  private readonly maskId = `${this.uid}-mask`
 
   private design = normalizeKumoDesign(DEFAULT_KUMO_DESIGN)
   private motion = normalizeKumoMotion(DEFAULT_KUMO_MOTION)
   private attachments: KumoLegGeometry[] = []
   private bodyRadii: number[] = []
+  private idleBodyPath = ''
   private color = DEFAULT_COLOR
+  private paper = DEFAULT_PAPER
   private baseExpression = expressionFor(DEFAULT_EXPRESSION)
   private expressionFrom: BotExpression = this.baseExpression
   private expressionTo: BotExpression = this.baseExpression
@@ -128,6 +179,9 @@ export class KumoLogoElement extends HTMLElement {
   private manualTarget: { x: number; y: number } | null = null
   private currentLook = { x: 0, y: 0, mix: 0 }
   private activeBreak: { name: KumoBreak; startedAt: number } | null = null
+  private activeAnimation: ActiveAnimation | null = null
+  private sequenceToken = 0
+  private viewBoxHalf = DEMI_VIEWBOX
   private startedAt = 0
   private previousAt = 0
   private raf = 0
@@ -151,13 +205,35 @@ export class KumoLogoElement extends HTMLElement {
     this.svg.setAttribute('role', 'img')
     this.svg.setAttribute('aria-label', this.getAttribute('aria-label') ?? 'Animated Kumo logo')
 
+    this.mask.setAttribute('id', this.maskId)
+    this.mask.setAttribute('maskUnits', 'userSpaceOnUse')
+    this.maskBody.setAttribute('fill', '#fff')
+    this.maskEyes.forEach((eye) => eye.setAttribute('fill', '#000'))
+    this.maskNotch.setAttribute('fill', '#000')
+    this.mask.append(this.maskBody, ...this.maskEyes, this.maskNotch)
+    this.defs.append(this.mask)
+
+    this.backArcs.setAttribute('fill', 'none')
+    this.backArcs.setAttribute('stroke-linecap', 'round')
+    this.frontArcs.setAttribute('fill', 'none')
+    this.frontArcs.setAttribute('stroke-linecap', 'round')
     this.body.setAttribute('data-kumo-body', '')
+    this.body.setAttribute('mask', `url(#${this.maskId})`)
     this.eyeNodes.forEach((eye, index) => {
       eye.setAttribute('data-kumo-eye', String(index))
       this.eyesGroup.append(eye)
     })
-    this.scene.append(this.legsGroup, this.body, this.eyesGroup)
-    this.svg.append(this.scene)
+    this.notification.setAttribute('fill', NOTIF_BLUE)
+    this.scene.append(this.legsGroup, this.bodyPaper, this.body, this.eyesGroup)
+    this.svg.append(
+      this.defs,
+      this.backArcs,
+      this.dotsBehind,
+      this.scene,
+      this.dotsFront,
+      this.notification,
+      this.frontArcs
+    )
     this.shadow.append(style, this.svg)
     this.updateGeometry()
   }
@@ -177,6 +253,7 @@ export class KumoLogoElement extends HTMLElement {
   disconnectedCallback() {
     this.connected = false
     cancelAnimationFrame(this.raf)
+    this.cancelAnimation('disconnected')
     this.reducedMotionQuery.removeEventListener('change', this.onReducedMotion)
     this.detachPointerListener()
   }
@@ -212,6 +289,7 @@ export class KumoLogoElement extends HTMLElement {
     if (value.design) this.design = normalizeKumoDesign({ ...this.design, ...value.design })
     if (value.motion) this.motion = normalizeKumoMotion({ ...this.motion, ...value.motion })
     if (value.color !== undefined) this.color = validHex(value.color, this.color)
+    if (value.paper !== undefined) this.paper = validHex(value.paper, this.paper)
     if (value.expression !== undefined) {
       this.baseExpression = expressionFor(value.expression)
       this.transitionTo(this.baseExpression)
@@ -229,6 +307,7 @@ export class KumoLogoElement extends HTMLElement {
   getConfig(): KumoRuntimeSnapshot {
     return {
       color: this.color,
+      paper: this.paper,
       expression: this.baseExpression.id,
       design: normalizeKumoDesign(this.design),
       motion: normalizeKumoMotion(this.motion),
@@ -289,6 +368,38 @@ export class KumoLogoElement extends HTMLElement {
   }
 
   /**
+   * Play any authored studio state on demand. `startup` is the rainbow-ring
+   * entrance with the full eye turn; `intro` is the eye turn on its own.
+   * The promise resolves after Kumo has smoothly returned to live idle.
+   */
+  playAnimation(name: KumoAnimation | string, options: KumoAnimationOptions = {}) {
+    this.sequenceToken++
+    return this.startAnimation(name, options)
+  }
+
+  /** Play authored states in order, while keeping cancellation deterministic. */
+  async playSequence(steps: readonly KumoAnimationStep[]) {
+    const token = ++this.sequenceToken
+    for (const step of steps) {
+      if (token !== this.sequenceToken) return false
+      const entry = typeof step === 'string' ? { name: step } : step
+      const completed = await this.startAnimation(entry.name, {
+        duration: entry.duration,
+        returnToIdle: entry.returnToIdle
+      })
+      if (!completed || token !== this.sequenceToken) return false
+    }
+    return true
+  }
+
+  /** Cancel an authored state and immediately resume the configured live idle. */
+  stopAnimation() {
+    this.sequenceToken++
+    this.cancelAnimation('stopped')
+    return this
+  }
+
+  /**
    * Map application situations to a face, gaze behavior, and unique gesture.
    * Calls are intentionally imperative: a loading result can arrive at any time.
    */
@@ -304,6 +415,71 @@ export class KumoLogoElement extends HTMLElement {
     if (this.getAttribute('context') !== 'idle') this.setAttribute('context', 'idle')
     else this.applyContext('idle')
     return this
+  }
+
+  private startAnimation(name: KumoAnimation | string, options: KumoAnimationOptions = {}) {
+    const requested = name.toLowerCase()
+    const normalized = (ANIMATION_ALIASES[requested] ?? requested) as KumoAnimation
+    const isIntro = normalized === 'intro'
+    const isStartup = normalized === 'startup'
+    const state = (isIntro ? 'idle' : isStartup ? 'swirl' : normalized) as StateId
+    const definition = STATE_BY_ID.get(state)
+    if (!definition) return Promise.resolve(false)
+
+    this.cancelAnimation('replaced')
+    const now = performance.now()
+    const requestedDuration = finite(options.duration, isIntro ? TOUR_TIME : definition.duration)
+    const minimum = isIntro ? TOUR_TIME : (definition.minDuration ?? 0.2)
+    const stateDuration = Math.max(minimum, requestedDuration)
+    const returnToIdle = options.returnToIdle !== false && state !== 'idle'
+    const returnDuration = returnToIdle ? STATE_BY_ID.get('idle')!.morph : 0
+    const engine = new BotEngine(RAYON, 'idle', this.bodyRadii, this.expressionAt(now))
+    if (state !== 'idle') engine.setState(state, 0)
+
+    return new Promise<boolean>((resolve) => {
+      this.activeAnimation = {
+        name: normalized,
+        engine,
+        startedAt: now,
+        stateDuration,
+        totalDuration: stateDuration + returnDuration,
+        returnAt: returnToIdle ? stateDuration : null,
+        returned: false,
+        eyeTour: isIntro || isStartup || state === 'swirl',
+        resolve
+      }
+      this.dispatchEvent(
+        new CustomEvent('kumo-animation-start', {
+          detail: { name: normalized, duration: stateDuration },
+          bubbles: true
+        })
+      )
+    })
+  }
+
+  private cancelAnimation(reason: string) {
+    const active = this.activeAnimation
+    if (!active) return
+    this.activeAnimation = null
+    active.resolve(false)
+    this.dispatchEvent(
+      new CustomEvent('kumo-animation-cancel', {
+        detail: { name: active.name, reason },
+        bubbles: true
+      })
+    )
+  }
+
+  private finishAnimation(active: ActiveAnimation) {
+    if (this.activeAnimation !== active) return
+    this.activeAnimation = null
+    active.resolve(true)
+    this.dispatchEvent(
+      new CustomEvent('kumo-animation-end', {
+        detail: { name: active.name },
+        bubbles: true
+      })
+    )
   }
 
   private transitionTo(next: BotExpression) {
@@ -365,8 +541,13 @@ export class KumoLogoElement extends HTMLElement {
       sx: 1,
       sy: 1
     }
-    this.body.setAttribute('d', closedPath(toPoints(silhouette, RAYON)))
+    const bodyPath = closedPath(toPoints(silhouette, RAYON))
+    this.idleBodyPath = bodyPath
+    this.bodyPaper.setAttribute('d', bodyPath)
+    this.bodyPaper.setAttribute('fill', this.paper)
+    this.body.setAttribute('d', bodyPath)
     this.body.setAttribute('fill', this.color)
+    this.maskBody.setAttribute('d', bodyPath)
     this.eyeNodes.forEach((eye) => eye.setAttribute('fill', this.design.eyeColor))
 
     this.legsGroup.replaceChildren()
@@ -398,7 +579,15 @@ export class KumoLogoElement extends HTMLElement {
     )
     // Flexing Knuckles and signature reaches need breathing room beyond authored bounds.
     const half = Math.ceil(RAYON * (Math.max(bodyExtent, legExtent) + 0.18))
-    this.svg.setAttribute('viewBox', `${-half} ${-half} ${half * 2} ${half * 2}`)
+    this.viewBoxHalf = Math.max(DEMI_VIEWBOX, half)
+    this.mask.setAttribute('x', String(-this.viewBoxHalf))
+    this.mask.setAttribute('y', String(-this.viewBoxHalf))
+    this.mask.setAttribute('width', String(this.viewBoxHalf * 2))
+    this.mask.setAttribute('height', String(this.viewBoxHalf * 2))
+    this.svg.setAttribute(
+      'viewBox',
+      `${-this.viewBoxHalf} ${-this.viewBoxHalf} ${this.viewBoxHalf * 2} ${this.viewBoxHalf * 2}`
+    )
   }
 
   private readonly tick = (now: number) => {
@@ -406,11 +595,23 @@ export class KumoLogoElement extends HTMLElement {
     const elapsed = ((now - this.startedAt) / 1000) * (this.reduceMotion ? 0.45 : 1)
     const dt = Math.min(0.05, Math.max(0, (now - this.previousAt) / 1000))
     this.previousAt = now
-    this.render(elapsed, now, dt)
+    if (this.activeAnimation) this.renderAuthoredAnimation(elapsed, now)
+    else this.renderIdle(elapsed, now, dt)
     this.raf = requestAnimationFrame(this.tick)
   }
 
-  private render(time: number, now: number, dt: number) {
+  private renderIdle(time: number, now: number, dt: number) {
+    this.clearAuthoredDecor()
+    this.maskBody.setAttribute('d', this.idleBodyPath)
+    this.bodyPaper.setAttribute('d', this.idleBodyPath)
+    this.bodyPaper.setAttribute('fill', this.paper)
+    this.bodyPaper.setAttribute('opacity', '1')
+    this.body.setAttribute('d', this.idleBodyPath)
+    this.body.setAttribute('fill', this.color)
+    this.body.setAttribute('opacity', '1')
+    this.legsGroup.setAttribute('opacity', '1')
+    this.legsGroup.removeAttribute('transform')
+    this.maskNotch.setAttribute('r', '0')
     const life = liveliness(time, { wander: 1, blink: true, float: true })
     const expression = this.expressionAt(now)
     const contextTarget =
@@ -443,6 +644,7 @@ export class KumoLogoElement extends HTMLElement {
       const config = expression.eyes[index]!
       if (pose.depth <= 0.02) {
         eye.setAttribute('opacity', '0')
+        this.maskEyes[index]!.setAttribute('opacity', '0')
         continue
       }
       const phi = ((config.tilt ?? 0) * Math.PI) / 180
@@ -460,6 +662,10 @@ export class KumoLogoElement extends HTMLElement {
         `matrix(${r2(ax)},${r2(ay * lid)},${r2(cx)},${r2(cy * lid)},${r2(pose.x * fit)},${r2(pose.y * fit)})`
       )
       eye.setAttribute('opacity', String(clamp(pose.depth / 0.12)))
+      const maskEye = this.maskEyes[index]!
+      maskEye.setAttribute('d', eye.getAttribute('d') ?? '')
+      maskEye.setAttribute('transform', eye.getAttribute('transform') ?? '')
+      maskEye.setAttribute('opacity', eye.getAttribute('opacity') ?? '0')
     }
 
     this.scene.setAttribute(
@@ -506,6 +712,161 @@ export class KumoLogoElement extends HTMLElement {
       )
       node.path.setAttribute('d', kumoLegPathWithJointRotation(attachment, jointRotation))
     })
+  }
+
+  private renderAuthoredAnimation(globalTime: number, now: number) {
+    const active = this.activeAnimation
+    if (!active) return
+    const local = Math.max(0, (now - active.startedAt) / 1000)
+    if (active.returnAt !== null && local >= active.returnAt && !active.returned) {
+      active.engine.setState('idle', active.returnAt)
+      active.returned = true
+    }
+    if (local >= active.totalDuration) {
+      this.finishAnimation(active)
+      this.renderIdle(globalTime, now, 0)
+      return
+    }
+    if (active.eyeTour) active.engine.setLook(tourLook(local), local, 1 / 60)
+    this.applyAuthoredFrame(active.engine.sample(local), globalTime, active.engine.state)
+  }
+
+  private applyAuthoredFrame(frame: BotFrame, time: number, state: StateId) {
+    this.scene.removeAttribute('transform')
+    this.maskBody.setAttribute('d', frame.bodyPath)
+    this.bodyPaper.setAttribute('d', frame.bodyPath)
+    this.bodyPaper.setAttribute('fill', this.paper)
+    this.bodyPaper.setAttribute('opacity', String(frame.bodyAlpha))
+    this.body.setAttribute('d', frame.bodyPath)
+    this.body.setAttribute('fill', this.color)
+    this.body.setAttribute('opacity', String(frame.bodyAlpha))
+
+    const bodyUsesDesign = STATE_BY_ID.get(state)?.baseBody ?? false
+    const transform = frame.bodyTransform
+    this.legsGroup.setAttribute('opacity', bodyUsesDesign ? String(frame.bodyAlpha) : '0')
+    this.legsGroup.setAttribute(
+      'transform',
+      `translate(${r2(transform.x)} ${r2(transform.y)}) scale(${r2(transform.sx)} ${r2(transform.sy)}) rotate(${r2(transform.rotation)})`
+    )
+    if (bodyUsesDesign) {
+      this.attachments.forEach((attachment, index) => {
+        const motion = kumoLegMotionAt(time, index, this.motion)
+        const pivotX = attachment.pivotX * RAYON
+        const pivotY = attachment.pivotY * RAYON
+        const node = this.legNodes[index]!
+        node.group.setAttribute(
+          'transform',
+          `rotate(${r2(motion.rotation)} ${r2(pivotX)} ${r2(pivotY)})`
+        )
+        node.path.setAttribute('d', kumoLegPathWithJointRotation(attachment, motion.jointRotation))
+      })
+    }
+
+    for (let index = 0; index < this.eyeNodes.length; index++) {
+      const rendered = frame.eyes[index]
+      const eye = this.eyeNodes[index]!
+      const maskEye = this.maskEyes[index]!
+      if (!rendered) {
+        eye.setAttribute('opacity', '0')
+        maskEye.setAttribute('opacity', '0')
+        continue
+      }
+      maskEye.setAttribute('d', rendered.d)
+      maskEye.setAttribute('transform', rendered.matrix)
+      maskEye.setAttribute('opacity', String(rendered.alpha))
+      eye.setAttribute('d', rendered.d)
+      eye.setAttribute('transform', rendered.matrix)
+      eye.setAttribute('fill', this.design.eyeColor)
+      eye.setAttribute('opacity', bodyUsesDesign ? String(rendered.alpha) : '0')
+    }
+
+    if (frame.notch) {
+      this.maskNotch.setAttribute('cx', String(frame.notch.x))
+      this.maskNotch.setAttribute('cy', String(frame.notch.y))
+      this.maskNotch.setAttribute('r', String(frame.notch.r))
+    } else {
+      this.maskNotch.setAttribute('r', '0')
+    }
+
+    this.renderDots(frame)
+    this.renderArcs(frame)
+    if (frame.notif) {
+      this.notification.setAttribute('cx', String(frame.notif.x))
+      this.notification.setAttribute('cy', String(frame.notif.y))
+      this.notification.setAttribute('r', String(frame.notif.r))
+    } else {
+      this.notification.setAttribute('r', '0')
+    }
+  }
+
+  private renderDots(frame: BotFrame) {
+    this.dotsBehind.replaceChildren()
+    this.dotsFront.replaceChildren()
+    const group = frame.dotsBehind ? this.dotsBehind : this.dotsFront
+    for (const dot of frame.dots) {
+      const node = dot.d ? svgNode('path') : svgNode('circle')
+      const fill =
+        dot.color ??
+        (dot.depth === undefined ? this.color : mixHex(this.paper, this.color, dot.depth))
+      node.setAttribute('fill', fill)
+      node.setAttribute('opacity', String(dot.opacity))
+      if (dot.d) {
+        node.setAttribute('d', dot.d)
+        node.setAttribute(
+          'transform',
+          `translate(${r2(dot.x)} ${r2(dot.y)}) rotate(${r2(dot.rot ?? 0)}) scale(${RAYON})`
+        )
+      } else {
+        node.setAttribute('cx', String(dot.x))
+        node.setAttribute('cy', String(dot.y))
+        node.setAttribute('r', String(dot.r))
+      }
+      group.append(node)
+    }
+  }
+
+  private renderArcs(frame: BotFrame) {
+    for (const gradient of this.defs.querySelectorAll('[data-kumo-gradient]')) gradient.remove()
+    this.backArcs.replaceChildren()
+    this.frontArcs.replaceChildren()
+    for (const arc of frame.arcs) {
+      const gradient = svgNode('linearGradient')
+      const id = `${this.uid}-${arc.id}`
+      gradient.setAttribute('id', id)
+      gradient.setAttribute('data-kumo-gradient', '')
+      gradient.setAttribute('gradientUnits', 'userSpaceOnUse')
+      gradient.setAttribute('x1', String(arc.grad.x1))
+      gradient.setAttribute('y1', String(arc.grad.y1))
+      gradient.setAttribute('x2', String(arc.grad.x2))
+      gradient.setAttribute('y2', String(arc.grad.y2))
+      arc.grad.stops.forEach((color, index) => {
+        const stop = svgNode('stop')
+        stop.setAttribute('offset', String(index / Math.max(1, arc.grad.stops.length - 1)))
+        stop.setAttribute('stop-color', color)
+        gradient.append(stop)
+      })
+      this.defs.append(gradient)
+
+      const makePath = (d: string) => {
+        const path = svgNode('path')
+        path.setAttribute('d', d)
+        path.setAttribute('stroke', `url(#${id})`)
+        path.setAttribute('stroke-width', String(arc.width))
+        path.setAttribute('opacity', String(arc.opacity))
+        return path
+      }
+      this.backArcs.append(makePath(arc.back))
+      this.frontArcs.append(makePath(arc.front))
+    }
+  }
+
+  private clearAuthoredDecor() {
+    this.dotsBehind.replaceChildren()
+    this.dotsFront.replaceChildren()
+    this.backArcs.replaceChildren()
+    this.frontArcs.replaceChildren()
+    this.notification.setAttribute('r', '0')
+    for (const gradient of this.defs.querySelectorAll('[data-kumo-gradient]')) gradient.remove()
   }
 
   private readonly onPointerMove = (event: PointerEvent) => {

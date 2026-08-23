@@ -75,4 +75,20 @@ describe('<kumo-logo>', () => {
     kumo.setAttribute('expression', 'happy')
     expect(kumo.getConfig().expression).toBe('heureux')
   })
+
+  it('exposes authored states, rainbow startup, sequences, and cancellation as promises', async () => {
+    const kumo = document.createElement('kumo-logo') as KumoLogoElement
+    document.body.append(kumo)
+    const starts: string[] = []
+    kumo.addEventListener('kumo-animation-start', (event) => {
+      starts.push((event as CustomEvent<{ name: string }>).detail.name)
+    })
+
+    const startup = kumo.playAnimation('startup')
+    expect(starts).toEqual(['startup'])
+    expect(kumo.stopAnimation()).toBe(kumo)
+    await expect(startup).resolves.toBe(false)
+    await expect(kumo.playAnimation('not-a-studio-state')).resolves.toBe(false)
+    await expect(kumo.playSequence([])).resolves.toBe(true)
+  })
 })

@@ -38,6 +38,7 @@ export function kumoEmbedSnippet(options: KumoEmbedOptions) {
 
   const kumo = document.querySelector("#kumo-logo");
   kumo.configure(${json});
+  await kumo.playAnimation("startup"); // rainbow rings + full eye turn
 
   // Drive Kumo from your app whenever the situation changes:
   // kumo.setContext("loading");
@@ -46,6 +47,9 @@ export function kumoEmbedSnippet(options: KumoEmbedOptions) {
   // kumo.lookAt(0.6, -0.2);       // normalized x/y, each from -1 to 1
   // kumo.setExpression("curious");
   // kumo.playBreak("scuttle");   // stretch | scuttle | curl
+  // await kumo.playAnimation("orbit"); // any studio state, on demand
+  // await kumo.playSequence(["wink", "play", "comet"]);
+  // kumo.stopAnimation();
   // console.log(kumo.getConfig()); // inspect every normalized design setting
   // kumo.resumeIdle();
 </script>`
