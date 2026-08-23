@@ -5,6 +5,7 @@ import { blockAt, defaultCycle, offsetOf, type Block } from '@/bot/cycles'
 import { RAYON } from '@/bot/repere'
 import { SHAPE_BY_ID } from '@/bot/skins'
 import { EXPRESSION_BY_ID } from '@/bot/expressions'
+import { normalizeKumoDesign } from '@/bot/kumo'
 import { ouvreCycle, versSvgAnime } from './capture'
 import { DEMI_ECRAN, viewBoxExport } from './export'
 
@@ -82,7 +83,7 @@ describe('lecteur hors ecran', () => {
         shape: 'kumo',
         color: 'kumo',
         expression: 'neutre',
-        legMotion: { amount: 0.9, speed: 1.2 }
+        legMotion: { amount: 0.9, speed: 1.2, rhythm: 'flow' }
       },
       TAILLE,
       3,
@@ -101,13 +102,19 @@ describe('lecteur hors ecran', () => {
         shape: 'kumo',
         color: 'kumo',
         expression: 'neutre',
-        kumoDesign: {
+        kumoDesign: normalizeKumoDesign({
           bodyAspect: 0.7,
           legLength: 1.1,
           legThickness: 0.8,
-          legSpread: -0.6
-        },
-        legMotion: { amount: 1, speed: 1.4 }
+          legStyle: 'knuckle',
+          legs: [
+            { angle: -168, reach: 0.8, bend: -0.5 },
+            { angle: -18, reach: 1.2, bend: 0.4 },
+            { angle: 35, reach: 1.1, bend: -0.3 },
+            { angle: 155, reach: 0.9, bend: 0.5 }
+          ]
+        }),
+        legMotion: { amount: 1, speed: 1.4, rhythm: 'skitter' }
       },
       defaultCycle().blocks,
       TAILLE

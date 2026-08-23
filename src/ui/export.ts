@@ -27,12 +27,11 @@ const MARGE = 1.08
  */
 export function etendueDeForme(forme: (typeof SHAPES)[number]) {
   const corps = Math.max(...forme.radii)
-  const accessoires =
-    forme.attachments?.map((a) => {
-      // Le cercle circonscrit reste juste quelle que soit la rotation de l'ellipse.
-      const r = Math.hypot(a.rx, a.ry)
-      return Math.max(Math.abs(a.cx) + r, Math.abs(a.cy) + r)
-    }) ?? []
+  const accessoires = forme.attachments
+    ? designKumoAttachments(forme.attachments, DEFAULT_KUMO_DESIGN).map((leg) =>
+        Math.max(Math.abs(leg.minX), Math.abs(leg.maxX), Math.abs(leg.minY), Math.abs(leg.maxY))
+      )
+    : []
   return Math.max(corps, ...accessoires)
 }
 
@@ -68,7 +67,9 @@ export function viewBoxAvatar(shape: string, design: KumoDesign = DEFAULT_KUMO_D
   if (selected?.id !== 'kumo' || !selected.attachments) return viewBoxExport()
   const body = Math.max(...designKumoBody(selected.radii, design))
   const legs = designKumoAttachments(selected.attachments, design).map(
-    (leg) => Math.max(Math.abs(leg.cx), Math.abs(leg.cy)) + Math.hypot(leg.rx, leg.ry) + 0.06
+    (leg) =>
+      Math.max(Math.abs(leg.minX), Math.abs(leg.maxX), Math.abs(leg.minY), Math.abs(leg.maxY)) +
+      0.06
   )
   return viewBoxExport(Math.ceil(RAYON * Math.max(body, ...legs) * MARGE))
 }

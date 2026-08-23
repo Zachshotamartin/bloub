@@ -6,68 +6,125 @@ import {
   designKumoBody,
   kumoLegMotionAt,
   kumoLegTransform,
+  kumoMotionEnvelope,
   normalizeKumoDesign,
   parseKumoDesign,
   parseKumoMotion
 } from './kumo'
 
 const kumo = SHAPE_BY_ID.get('kumo')!
+const extent = (leg: ReturnType<typeof designKumoAttachments>[number]) =>
+  Math.max(Math.abs(leg.minX), Math.abs(leg.maxX), Math.abs(leg.minY), Math.abs(leg.maxY))
 
 describe('configurable Kumo silhouette', () => {
-  it('keeps exactly four editable legs for every design', () => {
-    const legs = designKumoAttachments(kumo.attachments!, {
-      bodyAspect: 0.8,
-      legLength: 1.15,
-      legThickness: 0.72,
-      legSpread: 1
-    })
+  it('builds exactly four finite, editable Bezier legs', () => {
+    const legs = designKumoAttachments(
+      kumo.attachments!,
+      normalizeKumoDesign({
+        bodyAspect: 0.8,
+        legLength: 1.25,
+        legThickness: 0.7,
+        legStyle: 'petal'
+      })
+    )
     expect(legs).toHaveLength(4)
-    expect(legs.every((leg) => Object.values(leg).every(Number.isFinite))).toBe(true)
+    expect(legs.every((leg) => leg.d.startsWith('M ') && leg.d.endsWith(' Z'))).toBe(true)
+    expect(
+      legs.every((leg) =>
+        [leg.pivotX, leg.pivotY, leg.tipX, leg.tipY, leg.minX, leg.minY, leg.maxX, leg.maxY].every(
+          Number.isFinite
+        )
+      )
+    ).toBe(true)
   })
 
-  it('changes both the body profile and leg geometry', () => {
+  it('changes the body, total reach, and limb language independently', () => {
     const round = designKumoBody(kumo.radii, DEFAULT_KUMO_DESIGN)
-    const wide = designKumoBody(kumo.radii, { ...DEFAULT_KUMO_DESIGN, bodyAspect: 1 })
+    const wideDesign = normalizeKumoDesign({ ...DEFAULT_KUMO_DESIGN, bodyAspect: 1 })
+    const wide = designKumoBody(kumo.radii, wideDesign)
     expect(wide[0]).toBeGreaterThan(round[0]!)
     expect(wide[Math.floor(wide.length / 4)]).toBeLessThan(round[Math.floor(round.length / 4)]!)
 
-    const short = designKumoAttachments(kumo.attachments!, {
-      ...DEFAULT_KUMO_DESIGN,
-      legLength: 0.75
-    })
-    const long = designKumoAttachments(kumo.attachments!, {
-      ...DEFAULT_KUMO_DESIGN,
-      legLength: 1.15
-    })
-    expect(Math.max(long[0]!.rx, long[0]!.ry)).toBeGreaterThan(
-      Math.max(short[0]!.rx, short[0]!.ry)
+    const short = designKumoAttachments(
+      kumo.attachments!,
+      normalizeKumoDesign({ ...DEFAULT_KUMO_DESIGN, legLength: 0.72 })
     )
+    const long = designKumoAttachments(
+      kumo.attachments!,
+      normalizeKumoDesign({ ...DEFAULT_KUMO_DESIGN, legLength: 1.3 })
+    )
+    expect(extent(long[0]!)).toBeGreaterThan(extent(short[0]!))
+
+    const silk = designKumoAttachments(kumo.attachments!, DEFAULT_KUMO_DESIGN)
+    const knuckle = designKumoAttachments(
+      kumo.attachments!,
+      normalizeKumoDesign({ ...DEFAULT_KUMO_DESIGN, legStyle: 'knuckle' })
+    )
+    expect(knuckle[0]!.d).not.toBe(silk[0]!.d)
   })
 
-  it('clamps and safely restores persisted settings', () => {
-    expect(normalizeKumoDesign({ bodyAspect: 50, legLength: -4 })).toMatchObject({
-      bodyAspect: 1,
-      legLength: 0.75
+  it('moves one leg around the body without moving the other three', () => {
+    const movedDesign = normalizeKumoDesign({
+      ...DEFAULT_KUMO_DESIGN,
+      legs: DEFAULT_KUMO_DESIGN.legs.map((leg, index) =>
+        index === 1 ? { ...leg, angle: 92, reach: 1.3, bend: -0.8 } : { ...leg }
+      )
     })
+    const original = designKumoAttachments(kumo.attachments!, DEFAULT_KUMO_DESIGN)
+    const moved = designKumoAttachments(kumo.attachments!, movedDesign)
+    expect(moved[1]!.tipY).toBeGreaterThan(0)
+    expect(moved[1]!.d).not.toBe(original[1]!.d)
+    expect(moved[0]!.d).toBe(original[0]!.d)
+    expect(moved[2]!.d).toBe(original[2]!.d)
+    expect(moved[3]!.d).toBe(original[3]!.d)
+  })
+
+  it('clamps, migrates, and safely restores persisted settings', () => {
+    const normalized = normalizeKumoDesign({
+      bodyAspect: 50,
+      legLength: -4,
+      legStyle: 'not-real' as never,
+      legs: [{ angle: 725, reach: 9, bend: -8 }]
+    })
+    expect(normalized).toMatchObject({ bodyAspect: 1, legLength: 0.72, legStyle: 'silk' })
+    expect(normalized.legs[0]).toEqual({ angle: 5, reach: 1.35, bend: -1 })
     expect(parseKumoDesign('{bad json')).toEqual(DEFAULT_KUMO_DESIGN)
-    expect(parseKumoMotion('{"amount":9,"speed":0}')).toEqual({ amount: 1, speed: 0.35 })
+    expect(parseKumoDesign('{"legSpread":1}').legs[0]!.angle).not.toBe(
+      DEFAULT_KUMO_DESIGN.legs[0]!.angle
+    )
+    expect(parseKumoMotion('{"amount":9,"speed":0}')).toEqual({
+      amount: 1,
+      speed: 0.35,
+      rhythm: 'breathe'
+    })
   })
 })
 
 describe('Kumo leg movement', () => {
   it('is deterministic, independent per leg, and disabled at zero amount', () => {
-    const motion = { amount: 0.8, speed: 1.2 }
+    const motion = { amount: 0.8, speed: 1.2, rhythm: 'flow' as const }
     expect(kumoLegMotionAt(2.4, 0, motion)).toEqual(kumoLegMotionAt(2.4, 0, motion))
     expect(kumoLegMotionAt(2.4, 0, motion)).not.toEqual(kumoLegMotionAt(2.4, 1, motion))
-    expect(kumoLegMotionAt(2.4, 0, { amount: 0, speed: 2 })).toEqual({
+    expect(kumoLegMotionAt(2.4, 0, { amount: 0, speed: 2, rhythm: 'doze' })).toEqual({
       rotation: 0,
       reach: 0
     })
   })
 
-  it('emits a finite SVG transform around the inner joint', () => {
+  it('adds deterministic soft breaks without changing continuous flow', () => {
+    expect(kumoMotionEnvelope(50, 'flow')).toBe(1)
+    expect(kumoMotionEnvelope(3, 'breathe')).toBe(0)
+    expect(kumoMotionEnvelope(1.2, 'skitter')).toBe(0)
+    expect(kumoMotionEnvelope(3, 'doze')).toBe(0)
+    expect(kumoMotionEnvelope(2.4, 'breathe')).toBeGreaterThan(0)
+    expect(kumoMotionEnvelope(2.4, 'breathe')).toBeLessThan(1)
+  })
+
+  it('emits a finite SVG transform around the hidden shoulder', () => {
     const leg = designKumoAttachments(kumo.attachments!, DEFAULT_KUMO_DESIGN)[0]!
-    expect(kumoLegTransform(leg, 0, 1.25, { amount: 1, speed: 1 }, 100)).toMatch(
+    expect(
+      kumoLegTransform(leg, 0, 1.25, { amount: 1, speed: 1, rhythm: 'flow' }, 100)
+    ).toMatch(
       /^translate\(-?[\d.]+ -?[\d.]+\) rotate\(-?[\d.]+ -?[\d.]+ -?[\d.]+\)$/
     )
   })
