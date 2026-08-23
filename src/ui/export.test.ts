@@ -21,6 +21,7 @@ import {
   etendueDeForme,
   nomFichier,
   sansCommentaires,
+  viewBoxAvatar,
   viewBoxExport
 } from './export'
 
@@ -66,6 +67,20 @@ describe('cadre d export', () => {
   it('produit un viewBox carre centre sur la boule', () => {
     expect(viewBoxExport(125)).toBe('-125 -125 250 250')
     expect(viewBoxExport()).toBe(`${-DEMI_CADRE} ${-DEMI_CADRE} ${DEMI_CADRE * 2} ${DEMI_CADRE * 2}`)
+  })
+
+  it('agrandit le cadre pour une silhouette Kumo poussee aux limites', () => {
+    const normal = Number(viewBoxAvatar('kumo').split(' ')[2])
+    const extreme = Number(
+      viewBoxAvatar('kumo', {
+        bodyAspect: -1,
+        legLength: 1.15,
+        legThickness: 1.2,
+        legSpread: 1
+      }).split(' ')[2]
+    )
+    expect(extreme).toBeGreaterThan(normal)
+    expect(viewBoxAvatar('cercle')).toBe(viewBoxExport())
   })
 })
 

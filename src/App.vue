@@ -36,6 +36,7 @@ import {
   cycleImages,
   cyclePas,
   nomFichier,
+  viewBoxAvatar,
   type ActionId,
   type EtatExport,
   type FondGif,
@@ -55,6 +56,12 @@ import {
 } from '@/bot/cycles'
 import { DEFAULT_EXPRESSION, EXPRESSION_BY_ID } from '@/bot/expressions'
 import { COLOR_BY_ID, DEFAULT_COLOR, DEFAULT_SHAPE, SHAPE_BY_ID } from '@/bot/skins'
+import {
+  parseKumoDesign,
+  parseKumoMotion,
+  type KumoDesign,
+  type KumoMotion
+} from '@/bot/kumo'
 import { POSES, SEQUENCE, STATES, type StateId } from '@/bot/states'
 
 /**
@@ -443,10 +450,14 @@ const color = ref(stored('couleur', DEFAULT_COLOR, (v) => COLOR_BY_ID.has(v)))
 const expression = ref(
   stored('expression', DEFAULT_EXPRESSION, (v) => EXPRESSION_BY_ID.has(v))
 )
+const kumoDesign = ref<KumoDesign>(parseKumoDesign(lis('kumoDesign')))
+const kumoMotion = ref<KumoMotion>(parseKumoMotion(lis('kumoMotion')))
 
 watch(shape, (v) => ecris('forme', v))
 watch(color, (v) => ecris('couleur', v))
 watch(expression, (v) => ecris('expression', v))
+watch(kumoDesign, (v) => ecris('kumoDesign', JSON.stringify(v)))
+watch(kumoMotion, (v) => ecris('kumoMotion', JSON.stringify(v)))
 
 /**
  * Nom du produit, en capitales pour le grand mot du pied de page. PAS traduit —
@@ -595,7 +606,13 @@ async function exporteCycle() {
   const images = cycleImages(totalDuration(blocs), format)
   const pas = cyclePas(format)
   const taille = CYCLE_TAILLE[format]
-  const reglages = { shape: shape.value, color: color.value, expression: expression.value }
+  const reglages = {
+    shape: shape.value,
+    color: color.value,
+    expression: expression.value,
+    kumoDesign: kumoDesign.value,
+    legMotion: kumoMotion.value
+  }
   const suit = (fait: number, total: number) => (avancementCycle.value = fait / total)
 
   avancementCycle.value = 0
@@ -684,16 +701,32 @@ async function exporte(id: ActionId, confirme = false) {
     if (action.mode === 'anime') {
       // L'animation ne part PAS du SVG affiche : elle est rejouee depuis le debut
       // sur une instance hors ecran. Cf. `sequenceDuBot`.
-      const reglages = { shape: shape.value, color: color.value, expression: expression.value }
+      const reglages = {
+        shape: shape.value,
+        color: color.value,
+        expression: expression.value,
+        kumoDesign: kumoDesign.value,
+        legMotion: kumoMotion.value
+      }
       telecharge(await versSvgAnime(reglages, action.taille, ANIM_IMAGES, ANIM_PAS), nom())
       etatExport.value = 'exporte'
     } else if (action.mode === 'gif') {
-      const reglages = { shape: shape.value, color: color.value, expression: expression.value }
+      const reglages = {
+        shape: shape.value,
+        color: color.value,
+        expression: expression.value,
+        kumoDesign: kumoDesign.value,
+        legMotion: kumoMotion.value
+      }
       const fond = couleurDeFond(fondGif.value)
       telecharge(await versGifAnime(reglages, action.taille, GIF_IMAGES, GIF_PAS, fond), nom())
       etatExport.value = 'exporte'
     } else {
-      const markup = svgAutonome(svg, action.taille)
+      const markup = svgAutonome(
+        svg,
+        action.taille,
+        viewBoxAvatar(shape.value, kumoDesign.value)
+      )
       if (action.mode === 'copieImage') {
         // Le blob part en PROMESSE et non attendu ici : cf. `copie` dans capture.ts.
         await copie(versPng(markup, action.taille))
@@ -754,6 +787,8 @@ watch(
           :shape="shape"
           :color="color"
           :expression="expression"
+          :kumo-design="kumoDesign"
+          :leg-motion="kumoMotion"
           :frozen-at="POSES[s.id]"
         />
         <figcaption class="text-xs text-[var(--muted)]">{{ t(`states.${s.id}`) }}</figcaption>
@@ -872,6 +907,8 @@ watch(
             :shape="forme"
             :color="color"
             :expression="humeur ?? expression"
+            :kumo-design="kumoDesign"
+            :leg-motion="kumoMotion"
             :follow="view === 'reglages'"
             :gaze="intro ? INTRO_GAZE : null"
           />
@@ -960,6 +997,8 @@ watch(
               :shape="shape"
               :color="color"
               :expression="expression"
+              :kumo-design="kumoDesign"
+              :leg-motion="kumoMotion"
               :frozen-at="POSES[s.id]"
               @click="addBlock(s.id)"
             />
@@ -972,6 +1011,8 @@ watch(
             v-model:shape="shape"
             v-model:color="color"
             v-model:expression="expression"
+            v-model:kumo-design="kumoDesign"
+            v-model:leg-motion="kumoMotion"
           />
         </template>
       </aside>
@@ -998,6 +1039,8 @@ watch(
       :shape="shape"
       :color="color"
       :expression="expression"
+      :kumo-design="kumoDesign"
+      :leg-motion="kumoMotion"
       @seek="onSeek"
       @preview="preview = true"
         @exporter="dialogueCycle = true"

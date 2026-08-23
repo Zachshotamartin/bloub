@@ -3,6 +3,12 @@ import BloubBot from '@/components/BloubBot.vue'
 import { DEFAULT_EXPRESSION } from '@/bot/expressions'
 import { DEFAULT_COLOR, DEFAULT_SHAPE } from '@/bot/skins'
 import type { StateId } from '@/bot/states'
+import {
+  DEFAULT_KUMO_DESIGN,
+  DEFAULT_KUMO_MOTION,
+  type KumoDesign,
+  type KumoMotion
+} from '@/bot/kumo'
 
 /**
  * Vignette cliquable de la barre de droite : un bot fige, son nom dessous, une
@@ -22,6 +28,8 @@ withDefaults(
     shape?: string
     color?: string
     expression?: string
+    kumoDesign?: KumoDesign
+    legMotion?: KumoMotion
     size?: number
   }>(),
   {
@@ -29,7 +37,9 @@ withDefaults(
     shape: DEFAULT_SHAPE,
     color: DEFAULT_COLOR,
     expression: DEFAULT_EXPRESSION,
-    size: 60
+    size: 60,
+    kumoDesign: () => ({ ...DEFAULT_KUMO_DESIGN }),
+    legMotion: () => ({ ...DEFAULT_KUMO_MOTION })
   }
 )
 </script>
@@ -48,6 +58,8 @@ withDefaults(
       :shape="shape"
       :color="color"
       :expression="expression"
+      :kumo-design="kumoDesign"
+      :leg-motion="legMotion"
       :frozen-at="frozenAt"
     />
     <!-- 12 px : en dessous, une legende n'est plus lisible pour tout le monde -->

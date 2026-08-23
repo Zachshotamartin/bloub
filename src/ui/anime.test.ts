@@ -19,6 +19,38 @@ const MATRICES = [
   ['matrix(1,0,0,1,2,0)', 'matrix(1,0,0,1,12,0)']
 ]
 
+const KUMO_BASE = BASE.replace(
+  '</svg>',
+  '<g data-kumo-leg="0" transform="translate(0 1) rotate(2 3 4)"><ellipse cx="3" cy="4" rx="2" ry="1"/></g>' +
+    '<g data-kumo-leg="1" transform="translate(1 0) rotate(-2 -3 -4)"><ellipse cx="-3" cy="-4" rx="2" ry="1"/></g>' +
+    '<g data-kumo-leg="2" transform="translate(2 1) rotate(3 2 4)"><ellipse cx="2" cy="4" rx="2" ry="1"/></g>' +
+    '<g data-kumo-leg="3" transform="translate(1 2) rotate(-3 -2 -4)"><ellipse cx="-2" cy="-4" rx="2" ry="1"/></g>' +
+    '<path data-kumo-eye="0" transform="matrix(0.86,-0.32,0.45,0.84,14.85,-27.88)"/>' +
+    '<path data-kumo-eye="1" transform="matrix(0.62,-0.05,0.45,0.84,35.2,-29.43)"/>' +
+    '</svg>'
+)
+
+const PATTES = [
+  [
+    'translate(0 1) rotate(2 3 4)',
+    'translate(1 0) rotate(-2 -3 -4)',
+    'translate(2 1) rotate(3 2 4)',
+    'translate(1 2) rotate(-3 -2 -4)'
+  ],
+  [
+    'translate(0 2) rotate(5 3 4)',
+    'translate(2 0) rotate(-5 -3 -4)',
+    'translate(3 1) rotate(6 2 4)',
+    'translate(1 3) rotate(-6 -2 -4)'
+  ],
+  [
+    'translate(0 1) rotate(1 3 4)',
+    'translate(1 0) rotate(-1 -3 -4)',
+    'translate(2 1) rotate(2 2 4)',
+    'translate(1 2) rotate(-2 -2 -4)'
+  ]
+]
+
 describe('svg anime', () => {
   const sortie = svgAnime(BASE, MATRICES, 3)
 
@@ -75,6 +107,17 @@ describe('svg anime', () => {
     expect(() => svgAnime('<svg></svg>', MATRICES, 3)).toThrow()
     // autant de matrices par image cle que d'yeux dans le masque
     expect(() => svgAnime(BASE, [['matrix(1,0,0,1,0,0)'], ['matrix(1,0,0,1,1,0)']], 3)).toThrow()
+  })
+
+  it('anime les quatre pattes Kumo et le double rendu sombre des yeux', () => {
+    const kumo = svgAnime(KUMO_BASE, MATRICES, 3, PATTES)
+    expect(kumo).toContain('class="patte0"')
+    expect(kumo).toContain('class="patte3"')
+    expect(kumo).toContain('@keyframes patte0{0%{transform:translate(0 1) rotate(2 3 4)}')
+    expect(kumo).toContain('.patte3{animation-name:patte3}')
+    // Each eye class appears once in the mask and once on the dark Kumo overlay.
+    expect(kumo.match(/class="oeil0"/g)).toHaveLength(2)
+    expect(kumo.match(/class="oeil1"/g)).toHaveLength(2)
   })
 })
 

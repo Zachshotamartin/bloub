@@ -30,6 +30,24 @@ const en: typeof fr = {
     color: 'Colour'
   },
 
+  kumo: {
+    design: 'Four-leg silhouette',
+    designHelp: 'Redraw the body and legs to create your own mark.',
+    variation: 'New variation',
+    bodyAspect: 'Body proportions',
+    round: 'Round',
+    tall: 'Taller',
+    wide: 'Wider',
+    legLength: 'Leg length',
+    legThickness: 'Leg thickness',
+    legSpread: 'Leg spread',
+    motion: 'Leg movement',
+    motionHelp: 'Organic, repeatable motion built with the same noise system as the eyes.',
+    motionAmount: 'Movement amount',
+    motionSpeed: 'Movement speed',
+    reset: 'Reset Kumo design'
+  },
+
   export: {
     action: 'Export as PNG',
     more: 'Other formats',
@@ -133,7 +151,7 @@ const en: typeof fr = {
   },
 
   shapes: {
-    kumo: 'Kumo spider',
+    kumo: 'Custom Kumo',
     cercle: 'Circle',
     galet: 'Pebble',
     squircle: 'Squircle',

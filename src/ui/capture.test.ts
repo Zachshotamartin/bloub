@@ -5,7 +5,7 @@ import { blockAt, defaultCycle, offsetOf, type Block } from '@/bot/cycles'
 import { RAYON } from '@/bot/repere'
 import { SHAPE_BY_ID } from '@/bot/skins'
 import { EXPRESSION_BY_ID } from '@/bot/expressions'
-import { ouvreCycle } from './capture'
+import { ouvreCycle, versSvgAnime } from './capture'
 import { DEMI_ECRAN, viewBoxExport } from './export'
 
 /**
@@ -31,6 +31,10 @@ function corpsDe(svg: SVGSVGElement) {
 /** Les matrices des yeux, dans l'ordre du document. */
 function yeuxDe(svg: SVGSVGElement) {
   return [...svg.querySelectorAll('mask [transform]')].map((e) => e.getAttribute('transform')!)
+}
+
+function pattesDe(svg: SVGSVGElement) {
+  return [...svg.querySelectorAll('[data-kumo-leg]')].map((e) => e.getAttribute('transform')!)
 }
 
 /** Le moteur seul, cale comme `rendAt` le fait : chaque etat date de son offset absolu. */
@@ -72,6 +76,54 @@ describe('cadre de l export', () => {
 })
 
 describe('lecteur hors ecran', () => {
+  it('livre les quatre mouvements dans le SVG anime', async () => {
+    const blob = await versSvgAnime(
+      {
+        shape: 'kumo',
+        color: 'kumo',
+        expression: 'neutre',
+        legMotion: { amount: 0.9, speed: 1.2 }
+      },
+      TAILLE,
+      3,
+      0.2
+    )
+    const markup = await blob.text()
+    expect(markup).toContain('class="patte0"')
+    expect(markup).toContain('class="patte3"')
+    expect(markup).toContain('@keyframes patte3')
+    expect(markup.match(/data-kumo-leg=/g)).toHaveLength(4)
+  })
+
+  it('rejoue les quatre pattes configurees avec le meme temps que les yeux', async () => {
+    const lecteur = await ouvreCycle(
+      {
+        shape: 'kumo',
+        color: 'kumo',
+        expression: 'neutre',
+        kumoDesign: {
+          bodyAspect: 0.7,
+          legLength: 1.1,
+          legThickness: 0.8,
+          legSpread: -0.6
+        },
+        legMotion: { amount: 1, speed: 1.4 }
+      },
+      defaultCycle().blocks,
+      TAILLE
+    )
+    try {
+      const debut = pattesDe(await lecteur.rendre(0))
+      const suite = pattesDe(await lecteur.rendre(0.8))
+      expect(debut).toHaveLength(4)
+      expect(suite).toHaveLength(4)
+      expect(suite).not.toEqual(debut)
+      expect(pattesDe(await lecteur.rendre(0))).toEqual(debut)
+    } finally {
+      lecteur.ferme()
+    }
+  })
+
   /**
    * Rejouer la sequence doit redonner exactement les memes images.
    *

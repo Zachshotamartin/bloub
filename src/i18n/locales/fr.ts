@@ -47,6 +47,24 @@ export default {
     color: 'Couleur'
   },
 
+  kumo: {
+    design: 'Silhouette à quatre pattes',
+    designHelp: 'Redessinez le corps et les pattes pour créer votre propre marque.',
+    variation: 'Variation',
+    bodyAspect: 'Proportions du corps',
+    round: 'Rond',
+    tall: 'Plus haut',
+    wide: 'Plus large',
+    legLength: 'Longueur des pattes',
+    legThickness: 'Épaisseur des pattes',
+    legSpread: 'Écartement des pattes',
+    motion: 'Mouvement des pattes',
+    motionHelp: 'Un mouvement organique et reproductible, construit comme celui des yeux.',
+    motionAmount: 'Amplitude',
+    motionSpeed: 'Vitesse',
+    reset: 'Rétablir le dessin Kumo'
+  },
+
   /**
    * Barre d'export de la vue Personnaliser. Les libelles du menu sont des
    * ACTIONS et pas des noms de format : « Télécharger le PNG » se comprend sans
@@ -158,7 +176,7 @@ export default {
   },
 
   shapes: {
-    kumo: 'Araignée Kumo',
+    kumo: 'Kumo personnalisable',
     cercle: 'Cercle',
     galet: 'Galet',
     squircle: 'Squircle',

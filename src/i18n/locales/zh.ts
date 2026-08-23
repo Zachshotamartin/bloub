@@ -35,6 +35,24 @@ const zh: typeof fr = {
     color: '颜色'
   },
 
+  kumo: {
+    design: '四腿轮廓',
+    designHelp: '重新调整身体和腿部，创建属于你的标志。',
+    variation: '生成变化',
+    bodyAspect: '身体比例',
+    round: '圆形',
+    tall: '更高',
+    wide: '更宽',
+    legLength: '腿部长度',
+    legThickness: '腿部粗细',
+    legSpread: '腿部张开',
+    motion: '腿部运动',
+    motionHelp: '使用与眼睛相同的噪声系统生成自然且可重复的运动。',
+    motionAmount: '运动幅度',
+    motionSpeed: '运动速度',
+    reset: '重置 Kumo 设计'
+  },
+
   export: {
     action: '导出 PNG',
     more: '其他格式',
@@ -136,7 +154,7 @@ const zh: typeof fr = {
   },
 
   shapes: {
-    kumo: 'Kumo 蜘蛛',
+    kumo: '自定义 Kumo',
     cercle: '圆形',
     galet: '卵石',
     squircle: '圆角方形',

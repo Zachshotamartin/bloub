@@ -18,6 +18,7 @@ import {
 import type { StateId } from '@/bot/states'
 import { MAX_ZOOM, MIN_ZOOM, mmss } from '@/ui/timeline'
 import { nomDeCycle, pluriel, t } from '@/i18n'
+import type { KumoDesign, KumoMotion } from '@/bot/kumo'
 
 /**
  * Barre de montage : elle tient les cycles (choix, creation, renommage,
@@ -30,6 +31,8 @@ const props = defineProps<{
   shape: string
   color: string
   expression: string
+  kumoDesign: KumoDesign
+  legMotion: KumoMotion
 }>()
 
 /**
@@ -255,6 +258,8 @@ function onRemove() {
         :shape="shape"
         :color="color"
         :expression="expression"
+        :kumo-design="kumoDesign"
+        :leg-motion="legMotion"
         @update:blocks="(b: Block[]) => edit({ blocks: b })"
         @add="(s: StateId) => edit({ blocks: blocksWith(blocks, s) })"
         @seek="emit('seek', $event)"
