@@ -84,17 +84,17 @@ export function viewBoxAvatar(shape: string, design: KumoDesign = DEFAULT_KUMO_D
  */
 export const DEMI_ECRAN = DEMI_VIEWBOX
 
-export type ActionId = 'png' | 'svg' | 'anime' | 'gif' | 'copie' | 'copieSvg'
+export type ActionId = 'png' | 'svg' | 'anime' | 'gif' | 'embed' | 'copie' | 'copieSvg'
 
 /** Ce qu'on fait de l'image une fois produite. */
-export type ModeExport = 'telecharge' | 'anime' | 'gif' | 'copieImage' | 'copieTexte'
+export type ModeExport = 'telecharge' | 'anime' | 'gif' | 'embed' | 'copieImage' | 'copieTexte'
 
 export interface ActionExport {
   id: ActionId
   mode: ModeExport
   /** Cote de l'image en pixels. */
   taille: number
-  extension: 'png' | 'svg' | 'gif'
+  extension: 'png' | 'svg' | 'gif' | 'html'
   /**
    * Ajoute au nom du fichier. L'animation est un SVG elle aussi : sans ce suffixe
    * elle ecraserait l'export fixe dans le dossier de telechargement.
@@ -234,6 +234,7 @@ export const ACTIONS: ActionExport[] = [
   { id: 'svg', mode: 'telecharge', taille: DEMI_CADRE * 2, extension: 'svg' },
   { id: 'anime', mode: 'anime', taille: DEMI_CADRE * 2, extension: 'svg', suffixe: 'anime' },
   { id: 'gif', mode: 'gif', taille: GIF_TAILLE, extension: 'gif' },
+  { id: 'embed', mode: 'embed', taille: DEMI_CADRE * 2, extension: 'html' },
   { id: 'copie', mode: 'copieImage', taille: 1024, extension: 'png' },
   { id: 'copieSvg', mode: 'copieTexte', taille: DEMI_CADRE * 2, extension: 'svg' }
 ]

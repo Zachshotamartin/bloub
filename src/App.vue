@@ -43,6 +43,7 @@ import {
   type FormatCycle
 } from '@/ui/export'
 import { HUMEURS } from '@/ui/gaze'
+import { kumoEmbedSnippet } from '@/ui/embed'
 import { INTRO, INTRO_GAZE, POSE_AT, introDue } from '@/ui/intro'
 import { ecris, lis, type NomStocke } from '@/ui/stockage'
 import {
@@ -698,7 +699,17 @@ async function exporte(id: ActionId, confirme = false) {
   const nom = () =>
     nomFichier(shape.value, expression.value, color.value, action.extension, action.suffixe)
   try {
-    if (action.mode === 'anime') {
+    if (action.mode === 'embed') {
+      await copieTexte(
+        kumoEmbedSnippet({
+          color: COLOR_BY_ID.get(color.value)?.hex ?? '#d9d9d9',
+          expression: expression.value,
+          design: kumoDesign.value,
+          motion: kumoMotion.value
+        })
+      )
+      etatExport.value = 'copie'
+    } else if (action.mode === 'anime') {
       // L'animation ne part PAS du SVG affiche : elle est rejouee depuis le debut
       // sur une instance hors ecran. Cf. `sequenceDuBot`.
       const reglages = {
@@ -944,7 +955,7 @@ watch(
           :class="(nue || barreCachee) && 'barre-export--cachee'"
           :inert="nue || barreCachee"
         >
-          <ExportBar :etat="etatExport" @exporter="exporte" />
+          <ExportBar :etat="etatExport" :shape="shape" @exporter="exporte" />
         </div>
 
         <!--

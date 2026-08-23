@@ -93,6 +93,7 @@ const en: typeof fr = {
     svg: 'Download SVG',
     anime: 'Download animated SVG',
     gif: 'Download animated GIF',
+    embed: 'Copy interactive web component',
     cycleDetail: 'The video is lighter and smoother; the GIF plays anywhere.',
     cycleFormat: 'Format',
     cycle_mp4: 'MP4 video',

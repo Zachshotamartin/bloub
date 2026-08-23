@@ -6,6 +6,7 @@ import {
   designKumoBody,
   kumoLegMotionAt,
   kumoLegPathAt,
+  kumoLegPathWithJointRotation,
   kumoLegTransform,
   kumoSignatureBreakAt,
   normalizeKumoDesign,
@@ -196,6 +197,8 @@ describe('Kumo leg movement', () => {
       expect(kumoLegPathAt(knuckles[index]!, index, 1, { ...motion, amount: 0 })).toBe(
         knuckles[index]!.d
       )
+      expect(kumoLegPathWithJointRotation(knuckles[index]!, 12)).not.toBe(knuckles[index]!.d)
+      expect(kumoLegPathWithJointRotation(knuckles[index]!, 0)).toBe(knuckles[index]!.d)
     }
   })
 })

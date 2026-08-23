@@ -5,6 +5,17 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- **Interactive Web Component export.** The studio can now copy a live `<kumo-logo>`
+  embed carrying the current body, four leg handles, limb family, colours, expression
+  and movement settings. Unlike GIF or animated SVG, it continues generating gaze,
+  blinks, articulated leg motion and signature gestures on the destination website.
+- **A public situational API** for the embedded character: `configure()` and
+  `getConfig()` expose the complete normalized design, while `setContext()`,
+  `setExpression()`, `lookAt()`, `followPointer()`, `playBreak()` and `resumeIdle()`
+  let application state drive loading, success, error, attention and hover reactions.
+
 ### Fixed
 
 - **The Settings and Animations views were unusable below 64rem.** Everything stacks

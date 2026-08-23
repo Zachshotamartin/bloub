@@ -581,9 +581,21 @@ export function kumoLegPathAt(
 ): string {
   if (!attachment.knuckle) return attachment.d
   const pose = kumoLegMotionAt(time, index, value)
-  if (pose.jointRotation === 0) return attachment.d
+  return kumoLegPathWithJointRotation(attachment, pose.jointRotation)
+}
+
+/**
+ * Rebuilds a Knuckle from an explicit elbow angle. The interactive web export
+ * uses this for context-triggered gestures; keeping the operation here means
+ * its one-shot breaks and the studio preview share the exact same smooth limb.
+ */
+export function kumoLegPathWithJointRotation(
+  attachment: KumoLegGeometry,
+  jointRotation: number
+): string {
+  if (!attachment.knuckle || jointRotation === 0) return attachment.d
   const { root, elbow, tip, thickness } = attachment.knuckle
-  const angle = (pose.jointRotation * Math.PI) / 180
+  const angle = (jointRotation * Math.PI) / 180
   const delta = point(tip.x - elbow.x, tip.y - elbow.y)
   const rotatedTip = point(
     elbow.x + delta.x * Math.cos(angle) - delta.y * Math.sin(angle),

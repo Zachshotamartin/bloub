@@ -174,6 +174,61 @@ Copying an image is offered only where the browser can write one
 (`ClipboardItem.supports`); copying the SVG goes through `writeText` and works
 everywhere.
 
+## The interactive export is a runtime, not a recording
+
+**Copy interactive web component** serializes the exact current Kumo settings into a
+paste-ready `kumo.configure({...})` call: body colour and proportions; leg family,
+length and thickness; all four legs' angle, reach and bend; eye colour; expression;
+and movement amount, speed and rhythm. It never depends on this site's local storage.
+The destination page imports `/embed/kumo-logo.js`, a framework-free 9.8 kB gzip ES
+module that registers `<kumo-logo>` and contains the same pure geometry, eye projection,
+blink, loop-noise and articulated Knuckle functions as the studio.
+
+The complete configuration can be changed or read at any time:
+
+```js
+const kumo = document.querySelector('kumo-logo')
+
+kumo.configure({
+  color: '#e8483f',
+  expression: 'curious',
+  followPointer: true,
+  design: {
+    bodyAspect: 0.35,       // -1 to 1
+    legLength: 1.15,       // 0.72 to 1.3
+    legThickness: 0.9,     // 0.65 to 1.35
+    legStyle: 'knuckle',   // taper | paddle | knuckle
+    eyeColor: '#315ea8',
+    legs: [
+      { angle: -160, reach: 0.9, bend: -0.7 },
+      { angle: -20, reach: 1.2, bend: 0.6 },
+      { angle: 40, reach: 0.9, bend: -0.5 },
+      { angle: 145, reach: 1.1, bend: 0.6 }
+    ]
+  },
+  motion: { amount: 0.75, speed: 1.2, rhythm: 'skitter' }
+})
+
+console.log(kumo.getConfig())
+// Frameworks may use the equivalent `kumo.config = {...}` / `kumo.config` property.
+```
+
+`configure()` is partial and normalizes every value, so an app can update one setting
+without resending the rest. The simple declarative attributes are `color`, `expression`,
+`context` and `follow-pointer`.
+
+Application behavior stays separate from authored design. `setContext('loading')` scans
+with an attentive face and scuttles; `success` looks up, smiles and stretches; `error`
+drops its gaze and curls; `attention` snaps upward; `hover` follows the pointer; and
+`resumeIdle()` restores the configured expression and autonomous gaze. Lower-level calls
+are `setExpression(name)`, `lookAt(x, y)` with normalized `-1..1` coordinates,
+`clearLook()`, `followPointer(boolean)` and `playBreak('stretch' | 'scuttle' | 'curl')`.
+The element emits `kumo-ready`, `kumo-context-change`, `kumo-break-start` and
+`kumo-break-end` DOM events for applications that need to coordinate around it.
+
+This distinction is why the interactive export can react to an event whose time was not
+known during export. GIF and animated SVG remain deterministic recordings and cannot.
+
 
 ## Exporting a whole cycle is a different problem
 

@@ -98,6 +98,7 @@ const zh: typeof fr = {
     svg: '下载 SVG',
     anime: '下载 SVG 动图',
     gif: '下载 GIF 动图',
+    embed: '复制交互式网页组件',
     cycleDetail: '视频更轻更流畅；GIF 到处都能播放。',
     cycleFormat: '格式',
     cycle_mp4: 'MP4 视频',
