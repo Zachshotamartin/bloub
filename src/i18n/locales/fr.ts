@@ -116,6 +116,7 @@ export default {
     svg: 'Télécharger le SVG',
     anime: "Télécharger l'animation SVG",
     gif: 'Télécharger le GIF animé',
+    embed: 'Copier le composant web interactif',
     cycleDetail: 'La vidéo est plus légère et plus fluide ; le GIF passe partout.',
     cycleFormat: 'Format',
     cycle_mp4: 'Vidéo MP4',

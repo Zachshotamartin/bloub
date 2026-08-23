@@ -125,6 +125,10 @@ describe('catalogue des exports', () => {
     expect(ACTIONS.some((a) => a.mode === 'copieTexte')).toBe(true)
   })
 
+  it('propose un composant web vivant en plus des enregistrements', () => {
+    expect(ACTION_BY_ID.get('embed')).toMatchObject({ mode: 'embed', extension: 'html' })
+  })
+
   it('donne une taille exploitable a chaque action', () => {
     for (const action of ACTIONS) {
       expect(action.taille).toBeGreaterThan(0)

@@ -12,7 +12,7 @@ import { ACTIONS, ACTION_DEFAUT, type ActionId, type EtatExport } from '@/ui/exp
  * Le menu s'ouvre vers le HAUT : la barre est en bas de la colonne de l'avatar,
  * un menu vers le bas sortirait de la fenetre sur un ecran court.
  */
-const props = defineProps<{ etat: EtatExport }>()
+const props = defineProps<{ etat: EtatExport; shape: string }>()
 const emit = defineEmits<{ exporter: [ActionId] }>()
 
 const open = ref(false)
@@ -22,7 +22,15 @@ const root = ref<HTMLElement | null>(null)
  * La copie d'IMAGE n'est pas proposee la ou le navigateur ne sait pas en ecrire.
  * La copie du SVG, elle, passe par `writeText` et marche partout.
  */
-const actions = ACTIONS.filter((a) => a.mode !== 'copieImage' || copiePossible())
+const actions = computed(() =>
+  ACTIONS.filter(
+    (action) =>
+      (action.mode !== 'copieImage' || copiePossible()) &&
+      // The live runtime is specifically Kumo: alternate still-image skins do
+      // not have four-leg behavior to expose.
+      (action.mode !== 'embed' || props.shape === 'kumo')
+  )
+)
 
 const occupe = computed(() => props.etat === 'occupe')
 
@@ -139,12 +147,16 @@ onBeforeUnmount(() => window.removeEventListener('pointerdown', onOutside))
         :key="action.id"
         type="button"
         class="flex w-full cursor-pointer items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-sm transition hover:bg-black/5"
-        :class="action.id === 'copie' && 'mt-1 border-t border-[var(--line)] pt-2.5'"
+        :class="action.id === 'embed' && 'mt-1 border-t border-[var(--line)] pt-2.5'"
         @click="lance(action.id)"
       >
         <!-- solar:copy-linear -->
         <svg
-          v-if="action.mode === 'copieImage' || action.mode === 'copieTexte'"
+          v-if="
+            action.mode === 'copieImage' ||
+            action.mode === 'copieTexte' ||
+            action.mode === 'embed'
+          "
           width="16"
           height="16"
           viewBox="0 0 24 24"

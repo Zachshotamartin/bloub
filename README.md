@@ -7,7 +7,8 @@ its idle with optional signature breaks: stretch, scuttle or curl. These are aut
 Taper, paddle and continuous-outline knuckle legs have genuinely
 different geometry; Knuckle animates both its hidden shoulder and its smoothly rounded elbow. Body proportions, eye colour,
 movement, expression and colour can all be changed
-before exporting PNG, SVG, animated SVG, GIF or MP4.
+before exporting PNG, SVG, animated SVG, GIF or MP4. The studio can also copy a
+live `<kumo-logo>` Web Component whose embedded configuration matches the current design.
 
 The animation engine comes from the original `bloub` project: one radial SVG
 body morphing through 14 measured states, with independently animated eyes and
@@ -45,6 +46,23 @@ credits.
 Anything on screen can be exported: the avatar as SVG, PNG or an animated GIF, and
 a whole timeline as GIF or MP4. The still formats need no library at all, and the
 video encoder is only fetched the first time you ask for one.
+
+The **Copy interactive web component** action is different from a recording. It
+serializes the current body, four leg handles, leg family, colours, expression and
+motion settings into a paste-ready snippet. On the destination site, the live
+element exposes `configure()`, `getConfig()`, `setContext()`, `setExpression()`,
+`lookAt()`, `followPointer()`, `playBreak()` and `resumeIdle()`. For example:
+
+```js
+const kumo = document.querySelector('kumo-logo')
+kumo.configure({ motion: { amount: 0.8 }, design: { eyeColor: '#315ea8' } })
+kumo.setContext('loading')
+// Later, whenever the request resolves:
+kumo.setContext('success')
+```
+
+The deployed [interactive example](https://kumo-logo-studio.vercel.app/embed/example.html)
+shows every context and prints the result of `getConfig()` live.
 
 Two URLs are worth knowing:
 

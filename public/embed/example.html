@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Interactive Kumo example</title>
+    <style>
+      :root { color: #111318; background: #f4f1ea; font: 15px/1.5 ui-sans-serif, system-ui, sans-serif; }
+      body { min-height: 100vh; margin: 0; display: grid; place-items: center; }
+      main { width: min(720px, calc(100% - 40px)); display: grid; justify-items: center; gap: 24px; }
+      kumo-logo { width: min(360px, 80vw); }
+      nav { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; }
+      button { border: 1px solid #111318; border-radius: 999px; padding: 8px 14px; color: inherit; background: transparent; cursor: pointer; }
+      button:hover, button:focus-visible { color: #f4f1ea; background: #111318; }
+      pre { box-sizing: border-box; width: 100%; max-height: 260px; overflow: auto; margin: 0; border-top: 1px solid #cbc6bc; padding-top: 18px; font: 12px/1.6 ui-monospace, monospace; }
+    </style>
+  </head>
+  <body>
+    <main>
+      <kumo-logo id="kumo" aria-label="Interactive Kumo example"></kumo-logo>
+      <nav aria-label="Kumo contexts">
+        <button data-context="idle">Idle</button>
+        <button data-context="loading">Loading</button>
+        <button data-context="success">Success</button>
+        <button data-context="error">Error</button>
+        <button data-context="attention">Attention</button>
+        <button data-context="hover">Hover</button>
+      </nav>
+      <pre id="config" aria-label="Active Kumo configuration"></pre>
+    </main>
+    <script type="module">
+      import '/embed/kumo-logo.js'
+
+      const kumo = document.querySelector('#kumo')
+      const output = document.querySelector('#config')
+      kumo.configure({
+        color: '#d9d9d9',
+        expression: 'neutral',
+        followPointer: true,
+        design: {
+          bodyAspect: 0,
+          legLength: 1,
+          legThickness: 1,
+          legStyle: 'knuckle',
+          eyeColor: '#111318'
+        },
+        motion: { amount: 0.7, speed: 1, rhythm: 'breathe' }
+      })
+      const showConfig = () => (output.textContent = JSON.stringify(kumo.getConfig(), null, 2))
+      document.querySelector('nav').addEventListener('click', (event) => {
+        const context = event.target.closest('button')?.dataset.context
+        if (!context) return
+        kumo.setContext(context)
+        showConfig()
+      })
+      showConfig()
+    </script>
+  </body>
+</html>
