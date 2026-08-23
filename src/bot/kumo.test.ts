@@ -7,7 +7,7 @@ import {
   kumoLegMotionAt,
   kumoLegPathAt,
   kumoLegTransform,
-  kumoMotionEnvelope,
+  kumoSignatureBreakAt,
   normalizeKumoDesign,
   parseKumoDesign,
   parseKumoMotion
@@ -134,13 +134,33 @@ describe('Kumo leg movement', () => {
     expect(Math.abs(kumoLegMotionAt(2.4, 0, motion).rotation)).toBeLessThan(6)
   })
 
-  it('adds deterministic soft breaks without changing continuous flow', () => {
-    expect(kumoMotionEnvelope(50, 'flow')).toBe(1)
-    expect(kumoMotionEnvelope(3, 'breathe')).toBe(0)
-    expect(kumoMotionEnvelope(1.2, 'skitter')).toBe(0)
-    expect(kumoMotionEnvelope(3, 'doze')).toBe(0)
-    expect(kumoMotionEnvelope(2.4, 'breathe')).toBeGreaterThan(0)
-    expect(kumoMotionEnvelope(2.4, 'breathe')).toBeLessThan(1)
+  it('crossfades into three distinct signature gestures instead of stopping', () => {
+    expect(kumoSignatureBreakAt(50, 0, 'flow')).toEqual({
+      mix: 0,
+      rotation: 0,
+      jointRotation: 0
+    })
+    const samples = [
+      kumoSignatureBreakAt(3.925, 0, 'breathe'),
+      kumoSignatureBreakAt(2.43, 0, 'skitter'),
+      kumoSignatureBreakAt(4.925, 0, 'doze')
+    ]
+    expect(samples.every((pose) => pose.mix > 0.9)).toBe(true)
+    expect(new Set(samples.map((pose) => `${pose.rotation.toFixed(2)}/${pose.jointRotation.toFixed(2)}`)).size).toBe(3)
+    expect(kumoSignatureBreakAt(0.5, 0, 'breathe').mix).toBe(0)
+
+    const timings = { breathe: 3.925, skitter: 2.43, doze: 4.925 } as const
+    for (const rhythm of ['breathe', 'skitter', 'doze'] as const) {
+      const movement = Array.from({ length: 4 }, (_, index) =>
+        kumoLegMotionAt(timings[rhythm], index, { amount: 1, speed: 1, rhythm })
+      )
+      expect(
+        movement.reduce(
+          (sum, pose) => sum + Math.abs(pose.rotation) + Math.abs(pose.jointRotation),
+          0
+        )
+      ).toBeGreaterThan(8)
+    }
   })
 
   it('emits a finite SVG transform around the hidden shoulder', () => {

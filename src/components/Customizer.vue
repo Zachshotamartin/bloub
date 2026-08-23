@@ -369,6 +369,9 @@ const PREVIEW_AT = 1
               {{ t(`kumo.rhythm_${rhythm}`) }}
             </button>
           </div>
+          <p class="mt-1.5 text-[11px] leading-snug text-[var(--muted)]">
+            {{ t(`kumo.break_${legMotion.rhythm}Help`) }}
+          </p>
         </div>
 
         <div class="mt-3 grid grid-cols-2 gap-3">

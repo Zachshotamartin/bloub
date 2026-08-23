@@ -457,20 +457,71 @@ const smoothstep = (value: number) => {
   return t * t * (3 - 2 * t)
 }
 
-/** A soft deterministic gate that creates intentional breaks between gestures. */
-export function kumoMotionEnvelope(time: number, rhythm: KumoMotionRhythm) {
-  if (rhythm === 'flow') return 1
-  const windows: Record<Exclude<KumoMotionRhythm, 'flow'>, [number, number, number]> = {
-    breathe: [4, 2.3, 0.35],
-    skitter: [2.2, 0.55, 0.12],
-    doze: [5.8, 1.45, 0.3]
-  }
-  const [period, active, fade] = windows[rhythm]
+export interface KumoSignatureBreakPose {
+  mix: number
+  rotation: number
+  jointRotation: number
+}
+
+const BREAK_WINDOWS: Record<
+  Exclude<KumoMotionRhythm, 'flow'>,
+  { period: number; start: number; duration: number }
+> = {
+  breathe: { period: 5.2, start: 3.15, duration: 1.55 },
+  skitter: { period: 3.8, start: 1.95, duration: 1.15 },
+  doze: { period: 6.6, start: 3.85, duration: 2.15 }
+}
+
+/**
+ * A rare signature gesture layered over the ordinary idle. A break is never a
+ * stop: `mix` crossfades from baseline motion into a different choreography.
+ */
+export function kumoSignatureBreakAt(
+  time: number,
+  index: number,
+  rhythm: KumoMotionRhythm
+): KumoSignatureBreakPose {
+  if (rhythm === 'flow') return { mix: 0, rotation: 0, jointRotation: 0 }
+  const { period, start, duration } = BREAK_WINDOWS[rhythm]
   const phase = ((Math.max(0, finite(time, 0)) % period) + period) % period
-  if (phase <= active) return 1
-  if (phase < active + fade) return 1 - smoothstep((phase - active) / fade)
-  if (phase > period - fade) return smoothstep((phase - (period - fade)) / fade)
-  return 0
+  if (phase < start || phase > start + duration) {
+    return { mix: 0, rotation: 0, jointRotation: 0 }
+  }
+  const u = clamp((phase - start) / duration, 0, 1)
+  const mix = smoothstep(u / 0.18) * smoothstep((1 - u) / 0.22)
+  const side = [-1, 1, 1, -1][index] ?? (index % 2 ? 1 : -1)
+  const diagonal = [1, -1, 1, -1][index] ?? (index % 2 ? -1 : 1)
+
+  if (rhythm === 'breathe') {
+    // Signature stretch: the silhouette opens, reaches, then settles back.
+    const reach = Math.sin(Math.PI * u)
+    const settle = Math.sin(Math.PI * 2 * u)
+    return {
+      mix,
+      rotation: side * (6.6 * reach + 1.3 * settle) * mix,
+      jointRotation: -side * (9.4 * reach - 1.1 * settle) * mix
+    }
+  }
+
+  if (rhythm === 'skitter') {
+    // Signature scuttle: three fast diagonal footfalls, not random vibration.
+    const footfall = Math.sin(Math.PI * 6 * u + (diagonal < 0 ? Math.PI : 0))
+    const follow = Math.sin(Math.PI * 6 * u + 0.72 + (diagonal < 0 ? Math.PI : 0))
+    return {
+      mix,
+      rotation: side * footfall * 8.2 * mix,
+      jointRotation: -side * follow * 11.5 * mix
+    }
+  }
+
+  // Signature curl: all legs fold inward, add one sleepy twitch, then unfurl.
+  const fold = Math.sin(Math.PI * u) ** 2
+  const twitch = Math.sin(Math.PI * 4 * u) * Math.sin(Math.PI * u)
+  return {
+    mix,
+    rotation: (-side * 5.4 * fold + diagonal * 1.7 * twitch) * mix,
+    jointRotation: (side * 14.5 * fold + diagonal * 2.4 * twitch) * mix
+  }
 }
 
 /**
@@ -501,20 +552,17 @@ export function kumoLegMotionAt(
   const detail = loopNoise(t, 5.2 + index * 0.31, seed) * 0.65
   const jointPulse = Math.sin(cycle * 1.18 + pairPhase + 0.82)
   const jointDetail = loopNoise(t, 4.35 + index * 0.27, seed + 1.65)
-  const envelope = kumoMotionEnvelope(t, motion.rhythm)
+  const signature = kumoSignatureBreakAt(t, index, motion.rhythm)
+  const baselineMix = 1 - signature.mix * 0.82
+  const baselineRotation =
+    (pairedStep * direction * 3.4 + followThrough * 1.15 + detail) * amplitude
+  const baselineJoint =
+    (jointPulse * direction * -5.4 + jointDetail * 1.45) * amplitude
   return {
-    rotation:
-      (pairedStep * direction * 3.4 + followThrough * 1.15 + detail) *
-      amplitude *
-      motion.amount *
-      envelope,
+    rotation: (baselineRotation * baselineMix + signature.rotation) * motion.amount,
     // A second, slightly delayed beat flexes the distal bone instead of moving
     // the whole Knuckle as one rigid checkmark.
-    jointRotation:
-      (jointPulse * direction * -5.4 + jointDetail * 1.45) *
-      amplitude *
-      motion.amount *
-      envelope,
+    jointRotation: (baselineJoint * baselineMix + signature.jointRotation) * motion.amount,
     // The shoulder never translates: keeping its joint fixed prevents the root
     // from peeking out when a state animation squashes or stretches the body.
     reach: 0
