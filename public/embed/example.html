@@ -10,8 +10,9 @@
       main { width: min(720px, calc(100% - 40px)); display: grid; justify-items: center; gap: 24px; }
       kumo-logo { width: min(360px, 80vw); }
       nav { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; }
-      button { border: 1px solid #111318; border-radius: 999px; padding: 8px 14px; color: inherit; background: transparent; cursor: pointer; }
+      button, select { border: 1px solid #111318; border-radius: 999px; padding: 8px 14px; color: inherit; background: transparent; cursor: pointer; }
       button:hover, button:focus-visible { color: #f4f1ea; background: #111318; }
+      p { margin: -12px 0 0; color: #66645f; text-align: center; }
       pre { box-sizing: border-box; width: 100%; max-height: 260px; overflow: auto; margin: 0; border-top: 1px solid #cbc6bc; padding-top: 18px; font: 12px/1.6 ui-monospace, monospace; }
     </style>
   </head>
@@ -26,6 +27,27 @@
         <button data-context="attention">Attention</button>
         <button data-context="hover">Hover</button>
       </nav>
+      <nav aria-label="Kumo authored animations">
+        <button data-animation="startup">Rainbow startup</button>
+        <button data-animation="intro">Eye-turn intro</button>
+        <select id="animation" aria-label="Authored animation">
+          <option value="thinking">Thinking</option>
+          <option value="wink">Wink</option>
+          <option value="wide">Wide</option>
+          <option value="alert">Alert</option>
+          <option value="notify">Notify</option>
+          <option value="exclaim">Exclaim</option>
+          <option value="sleep">Sleep</option>
+          <option value="egg">Egg</option>
+          <option value="hexagon">Hexagon</option>
+          <option value="play">Play</option>
+          <option value="orbit">Orbit</option>
+          <option value="burst">Burst</option>
+          <option value="comet">Comet</option>
+        </select>
+        <button id="play-animation">Play animation</button>
+      </nav>
+      <p id="source"></p>
       <pre id="config" aria-label="Active Kumo configuration"></pre>
     </main>
     <script type="module">
@@ -33,7 +55,13 @@
 
       const kumo = document.querySelector('#kumo')
       const output = document.querySelector('#config')
-      kumo.configure({
+      const source = document.querySelector('#source')
+      const colors = {
+        kumo: '#d9d9d9', encre: '#0a0a0c', brun: '#8b5e3c', rouge: '#e8483f',
+        orange: '#f08a24', ambre: '#f0b429', vert: '#3ecf8e', turquoise: '#2fbfa0',
+        bleu: '#3b93f0', violet: '#8b5cf6', rose: '#e152b0', gris: '#a3a3a3', creme: '#f1efe9'
+      }
+      const fallback = {
         color: '#d9d9d9',
         expression: 'neutral',
         followPointer: true,
@@ -45,7 +73,32 @@
           eyeColor: '#111318'
         },
         motion: { amount: 0.7, speed: 1, rhythm: 'breathe' }
+      }
+      const storedJson = (name) => {
+        try { return JSON.parse(localStorage.getItem(`bloub:${name}`) ?? 'null') }
+        catch { return null }
+      }
+      const storedColor = (() => {
+        try { return localStorage.getItem('bloub:couleur') }
+        catch { return null }
+      })()
+      const storedExpression = (() => {
+        try { return localStorage.getItem('bloub:expression') }
+        catch { return null }
+      })()
+      const storedDesign = storedJson('kumoDesign')
+      const storedMotion = storedJson('kumoMotion')
+      const hasSavedDesign = Boolean(storedDesign || storedMotion || storedColor || storedExpression)
+      kumo.configure({
+        ...fallback,
+        color: colors[storedColor] ?? fallback.color,
+        expression: storedExpression ?? fallback.expression,
+        design: storedDesign ?? fallback.design,
+        motion: storedMotion ?? fallback.motion
       })
+      source.textContent = hasSavedDesign
+        ? 'Loaded the current design saved by this studio in your browser.'
+        : 'No saved studio design was found on this origin, so this is the fallback example.'
       const showConfig = () => (output.textContent = JSON.stringify(kumo.getConfig(), null, 2))
       document.querySelector('nav').addEventListener('click', (event) => {
         const context = event.target.closest('button')?.dataset.context
@@ -53,7 +106,16 @@
         kumo.setContext(context)
         showConfig()
       })
+      document.querySelector('[aria-label="Kumo authored animations"]').addEventListener('click', (event) => {
+        const animation = event.target.closest('button')?.dataset.animation
+        if (animation) kumo.playAnimation(animation)
+      })
+      document.querySelector('#play-animation').addEventListener('click', () => {
+        kumo.playAnimation(document.querySelector('#animation').value)
+      })
+      window.kumo = kumo
       showConfig()
+      kumo.playAnimation('startup')
     </script>
   </body>
 </html>

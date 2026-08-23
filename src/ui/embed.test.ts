@@ -36,6 +36,8 @@ describe('interactive Kumo embed export', () => {
     expect(snippet).toContain('"amount": 0.84')
     expect(snippet).toContain('"speed": 1.67')
     expect(snippet).toContain('"rhythm": "skitter"')
+    expect(snippet).toContain('await kumo.playAnimation("startup")')
+    expect(snippet).toContain('kumo.playSequence(["wink", "play", "comet"])')
     expect(snippet).toContain('kumo.getConfig()')
   })
 
