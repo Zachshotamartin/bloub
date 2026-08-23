@@ -79,7 +79,7 @@ describe('cadre d export', () => {
         bodyAspect: -1,
           legLength: 1.3,
           legThickness: 1.35,
-          legStyle: 'petal',
+          legStyle: 'paddle',
           legs: [
             { angle: -160, reach: 1.35, bend: -1 },
             { angle: -20, reach: 1.35, bend: 1 },

@@ -389,9 +389,14 @@ function matricesDesYeux(svg: SVGSVGElement) {
   return [...svg.querySelectorAll('mask [transform]')].map((e) => e.getAttribute('transform')!)
 }
 
-/** Transformations of the four independent Kumo leg groups, in stable index order. */
+/** Shoulder and optional elbow transforms, in stable document order. */
 function transformationsDesPattes(svg: SVGSVGElement) {
-  return [...svg.querySelectorAll('[data-kumo-leg]')].map((e) => e.getAttribute('transform')!)
+  return [...svg.querySelectorAll('[data-kumo-motion]')].map((e) => e.getAttribute('transform')!)
+}
+
+/** Continuous articulated outlines, one `d` per Knuckle leg. */
+function formesDesJointures(svg: SVGSVGElement) {
+  return [...svg.querySelectorAll('[data-kumo-knuckle]')].map((e) => e.getAttribute('d')!)
 }
 
 /**
@@ -410,13 +415,18 @@ export async function versSvgAnime(
   let base = ''
   const images = await sequenceDuBot(reglages, taille, nombre, pas, (svg, i) => {
     if (i === 0) base = svgAutonome(svg, taille, viewBoxAvatar(reglages.shape, reglages.kumoDesign))
-    return { eyes: matricesDesYeux(svg), legs: transformationsDesPattes(svg) }
+    return {
+      eyes: matricesDesYeux(svg),
+      legs: transformationsDesPattes(svg),
+      knuckles: formesDesJointures(svg)
+    }
   })
   const markup = svgAnime(
     base,
     images.map((image) => image.eyes),
     +((nombre - 1) * pas).toFixed(3),
-    images.map((image) => image.legs)
+    images.map((image) => image.legs),
+    images.map((image) => image.knuckles)
   )
   return new Blob([markup], { type: 'image/svg+xml' })
 }

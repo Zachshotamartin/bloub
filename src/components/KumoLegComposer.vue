@@ -16,10 +16,26 @@ const WIDTH = 256
 const HEIGHT = 176
 const CX = WIDTH / 2
 const CY = HEIGHT / 2
-const SCALE = 54
+const MAX_SCALE = 54
+const FRAME_MARGIN = 20
 
 const axes = computed(() => kumoBodyAxes(design.value))
 const renderedLegs = computed(() => designKumoAttachments(DEFAULT_KUMO_LEGS, design.value))
+const renderScale = computed(() => {
+  const extentX = Math.max(
+    axes.value.sx,
+    ...renderedLegs.value.map((leg) => Math.max(Math.abs(leg.minX), Math.abs(leg.maxX)))
+  )
+  const extentY = Math.max(
+    axes.value.sy,
+    ...renderedLegs.value.map((leg) => Math.max(Math.abs(leg.minY), Math.abs(leg.maxY)))
+  )
+  return Math.min(
+    MAX_SCALE,
+    (WIDTH / 2 - FRAME_MARGIN) / extentX,
+    (HEIGHT / 2 - FRAME_MARGIN) / extentY
+  )
+})
 const dragging = ref<number | null>(null)
 
 function anchor(index: number) {
@@ -29,7 +45,10 @@ function anchor(index: number) {
   const y = Math.sin(angle)
   const edge =
     1 / Math.sqrt((x * x) / (axes.value.sx * axes.value.sx) + (y * y) / (axes.value.sy * axes.value.sy))
-  return { x: CX + x * edge * SCALE * 1.03, y: CY + y * edge * SCALE * 1.03 }
+  return {
+    x: CX + x * edge * renderScale.value * 1.03,
+    y: CY + y * edge * renderScale.value * 1.03
+  }
 }
 
 function setLeg(index: number, patch: Partial<KumoDesign['legs'][number]>) {
@@ -111,8 +130,8 @@ function nudge(index: number, event: KeyboardEvent) {
       <ellipse
         :cx="CX"
         :cy="CY"
-        :rx="axes.sx * SCALE * 1.03"
-        :ry="axes.sy * SCALE * 1.03"
+        :rx="axes.sx * renderScale * 1.03"
+        :ry="axes.sy * renderScale * 1.03"
         fill="none"
         stroke="var(--muted)"
         stroke-width="1"
@@ -120,35 +139,29 @@ function nudge(index: number, event: KeyboardEvent) {
         opacity="0.42"
       />
 
-      <path
+      <g
         v-for="(leg, index) in renderedLegs"
         :key="`composer-leg-${index}`"
-        :d="leg.d"
-        :transform="`translate(${CX} ${CY}) scale(${SCALE})`"
-        fill="var(--ink)"
+        :transform="`translate(${CX} ${CY}) scale(${renderScale})`"
         :opacity="selected === index ? 0.96 : 0.32"
-        stroke="var(--ink)"
-        stroke-width="1.5"
-        stroke-linejoin="round"
-        vector-effect="non-scaling-stroke"
         class="transition-opacity duration-200"
-      />
+      >
+        <path :d="leg.d" fill="var(--ink)" />
+      </g>
 
       <ellipse
         :cx="CX"
         :cy="CY"
-        :rx="axes.sx * SCALE"
-        :ry="axes.sy * SCALE"
+        :rx="axes.sx * renderScale"
+        :ry="axes.sy * renderScale"
         fill="var(--paper)"
-        stroke="var(--ink)"
-        stroke-width="1.5"
       />
       <ellipse
         :cx="CX - 9"
         :cy="CY - 3"
         rx="2.8"
         ry="5.5"
-        fill="var(--ink)"
+        :fill="design.eyeColor"
         transform="rotate(-8 119 85)"
       />
       <ellipse
@@ -156,7 +169,7 @@ function nudge(index: number, event: KeyboardEvent) {
         :cy="CY - 5"
         rx="2.8"
         ry="5.5"
-        fill="var(--ink)"
+        :fill="design.eyeColor"
         transform="rotate(8 137 83)"
       />
 

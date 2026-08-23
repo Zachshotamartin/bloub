@@ -1,9 +1,19 @@
 import { clamp, loopNoise, r2 } from './math'
 
-export const KUMO_LEG_STYLE_IDS = ['silk', 'petal', 'knuckle'] as const
+export const KUMO_LEG_STYLE_IDS = ['taper', 'paddle', 'knuckle'] as const
 export type KumoLegStyle = (typeof KUMO_LEG_STYLE_IDS)[number]
 export const KUMO_MOTION_RHYTHM_IDS = ['flow', 'breathe', 'skitter', 'doze'] as const
 export type KumoMotionRhythm = (typeof KUMO_MOTION_RHYTHM_IDS)[number]
+
+export const KUMO_EYE_COLORS = [
+  { id: 'ink', hex: '#111318' },
+  { id: 'paper', hex: '#f9f9f9' },
+  { id: 'cobalt', hex: '#315ea8' },
+  { id: 'ember', hex: '#b84d3e' },
+  { id: 'moss', hex: '#4f765d' },
+  { id: 'violet', hex: '#735f91' },
+  { id: 'amber', hex: '#b87a2e' }
+] as const
 
 /** One movable leg handle. Angle is measured around the body in SVG degrees. */
 export interface KumoAttachment {
@@ -12,11 +22,22 @@ export interface KumoAttachment {
   bend: number
 }
 
+interface KumoKnuckleRig {
+  root: Point
+  elbow: Point
+  tip: Point
+  thickness: number
+}
+
 /** The rendered organic path plus the geometry needed by motion and export. */
 export interface KumoLegGeometry extends KumoAttachment {
   d: string
+  /** Source points used to rebuild one continuous path while its elbow flexes. */
+  knuckle?: KumoKnuckleRig
   pivotX: number
   pivotY: number
+  jointX: number
+  jointY: number
   tipX: number
   tipY: number
   minX: number
@@ -32,6 +53,7 @@ export interface KumoDesign {
   legLength: number
   legThickness: number
   legStyle: KumoLegStyle
+  eyeColor: string
   /** Four independently placeable handles around the body. */
   legs: KumoAttachment[]
 }
@@ -91,7 +113,8 @@ export const DEFAULT_KUMO_DESIGN: KumoDesign = {
   bodyAspect: 0,
   legLength: 1,
   legThickness: 1,
-  legStyle: 'silk',
+  legStyle: 'taper',
+  eyeColor: KUMO_EYE_COLORS[0].hex,
   legs: DEFAULT_KUMO_LEGS.map((leg) => ({ ...leg }))
 }
 
@@ -119,7 +142,10 @@ export function normalizeKumoLeg(
   }
 }
 
-type StoredKumoDesign = Partial<KumoDesign> & { legSpread?: number }
+type StoredKumoDesign = Omit<Partial<KumoDesign>, 'legStyle'> & {
+  legStyle?: KumoLegStyle | 'silk' | 'petal'
+  legSpread?: number
+}
 
 export function normalizeKumoDesign(value: StoredKumoDesign = {}): KumoDesign {
   const legacySpread = clamp(finite(value.legSpread, 0), -1, 1)
@@ -132,9 +158,18 @@ export function normalizeKumoDesign(value: StoredKumoDesign = {}): KumoDesign {
     }
     return normalizeKumoLeg(sourceLegs[index], migrated)
   })
-  const legStyle = KUMO_LEG_STYLE_IDS.includes(value.legStyle as KumoLegStyle)
-    ? (value.legStyle as KumoLegStyle)
-    : DEFAULT_KUMO_DESIGN.legStyle
+  const legacyStyles: Record<string, KumoLegStyle> = {
+    silk: 'taper',
+    petal: 'paddle'
+  }
+  const storedStyle = typeof value.legStyle === 'string' ? value.legStyle : ''
+  const legStyle = KUMO_LEG_STYLE_IDS.includes(storedStyle as KumoLegStyle)
+    ? (storedStyle as KumoLegStyle)
+    : (legacyStyles[storedStyle] ?? DEFAULT_KUMO_DESIGN.legStyle)
+  const eyeColor =
+    typeof value.eyeColor === 'string' && /^#[0-9a-f]{6}$/i.test(value.eyeColor)
+      ? value.eyeColor.toLowerCase()
+      : DEFAULT_KUMO_DESIGN.eyeColor
 
   return {
     bodyAspect: clamp(finite(value.bodyAspect, DEFAULT_KUMO_DESIGN.bodyAspect), -1, 1),
@@ -145,6 +180,7 @@ export function normalizeKumoDesign(value: StoredKumoDesign = {}): KumoDesign {
       1.35
     ),
     legStyle,
+    eyeColor,
     legs
   }
 }
@@ -215,21 +251,148 @@ const unit = (a: Point) => {
 const normal = (a: Point) => point(-a.y, a.x)
 const pathPoint = (a: Point) => `${r2(a.x)} ${r2(a.y)}`
 
-const STYLE_METRICS: Record<
-  KumoLegStyle,
-  { root: number; elbow: number; tip: number; curl: number; cap: number }
-> = {
-  /** Fine at the tip, like a brush stroke growing out of the body. */
-  silk: { root: 0.14, elbow: 0.11, tip: 0.055, curl: 1, cap: 1.35 },
-  /** A soft, buoyant lobe with a deliberately generous middle. */
-  petal: { root: 0.105, elbow: 0.155, tip: 0.145, curl: 0.78, cap: 1.2 },
-  /** A round elbow that narrows into a small foot, without a hard corner. */
-  knuckle: { root: 0.09, elbow: 0.205, tip: 0.085, curl: 1.12, cap: 1.48 }
+interface LegPath {
+  d: string
+  outline: Point[]
+}
+
+/** One uninterrupted limb that visibly narrows from shoulder to tip. */
+function taperedLegPath(root: Point, elbow: Point, tip: Point, thickness: number): LegPath {
+  return smoothLegPath(root, elbow, tip, {
+    root: 0.135 * thickness,
+    middle: 0.092 * thickness,
+    tip: 0.042 * thickness
+  })
+}
+
+/** A narrow stem that deliberately widens into a broad rounded paddle. */
+function paddleLegPath(root: Point, elbow: Point, tip: Point, thickness: number): LegPath {
+  return smoothLegPath(root, elbow, tip, {
+    root: 0.078 * thickness,
+    middle: 0.094 * thickness,
+    tip: 0.17 * thickness
+  })
+}
+
+function smoothLegPath(
+  root: Point,
+  elbow: Point,
+  tip: Point,
+  width: { root: number; middle: number; tip: number }
+): LegPath {
+  const firstDirection = unit(point(elbow.x - root.x, elbow.y - root.y))
+  const secondDirection = unit(point(tip.x - elbow.x, tip.y - elbow.y))
+  const rootNormal = normal(firstDirection)
+  const tipNormal = normal(secondDirection)
+  const rootLeft = add(root, scale(rootNormal, width.root))
+  const rootRight = add(root, scale(rootNormal, -width.root))
+  const tipLeft = add(tip, scale(tipNormal, width.tip))
+  const tipRight = add(tip, scale(tipNormal, -width.tip))
+  const firstControl = mix(root, elbow, 0.82)
+  const secondControl = mix(elbow, tip, 0.18)
+  const firstControlLeft = add(firstControl, scale(rootNormal, width.middle))
+  const firstControlRight = add(firstControl, scale(rootNormal, -width.middle))
+  const secondControlLeft = add(secondControl, scale(tipNormal, width.middle))
+  const secondControlRight = add(secondControl, scale(tipNormal, -width.middle))
+  const cap = width.tip * 1.34
+  const capLeft = add(tipLeft, scale(secondDirection, cap))
+  const capRight = add(tipRight, scale(secondDirection, cap))
+  const outline = [
+    rootLeft,
+    firstControlLeft,
+    secondControlLeft,
+    tipLeft,
+    capLeft,
+    capRight,
+    tipRight,
+    secondControlRight,
+    firstControlRight,
+    rootRight
+  ]
+  return {
+    d: [
+      `M ${pathPoint(rootLeft)}`,
+      `C ${pathPoint(firstControlLeft)} ${pathPoint(secondControlLeft)} ${pathPoint(tipLeft)}`,
+      `C ${pathPoint(capLeft)} ${pathPoint(capRight)} ${pathPoint(tipRight)}`,
+      `C ${pathPoint(secondControlRight)} ${pathPoint(firstControlRight)} ${pathPoint(rootRight)}`,
+      'Z'
+    ].join(' '),
+    outline
+  }
+}
+
+/** Two straight bones joined by one tangent-continuous rounded elbow. */
+function knuckleLegPath(root: Point, elbow: Point, tip: Point, thickness: number): LegPath {
+  const firstDirection = unit(point(elbow.x - root.x, elbow.y - root.y))
+  const secondDirection = unit(point(tip.x - elbow.x, tip.y - elbow.y))
+  const firstNormal = normal(firstDirection)
+  const secondNormal = normal(secondDirection)
+  const rootWidth = 0.105 * thickness
+  const jointWidth = 0.09 * thickness
+  const tipWidth = 0.055 * thickness
+  const corner = jointWidth * 1.55
+  const handle = corner * 0.78
+  const rootLeft = add(root, scale(firstNormal, rootWidth))
+  const rootRight = add(root, scale(firstNormal, -rootWidth))
+  const firstJointLeft = add(
+    add(elbow, scale(firstNormal, jointWidth)),
+    scale(firstDirection, -corner)
+  )
+  const secondJointLeft = add(
+    add(elbow, scale(secondNormal, jointWidth)),
+    scale(secondDirection, corner)
+  )
+  const outerControlA = add(firstJointLeft, scale(firstDirection, handle))
+  const outerControlB = add(secondJointLeft, scale(secondDirection, -handle))
+  const secondJointRight = add(
+    add(elbow, scale(secondNormal, -jointWidth)),
+    scale(secondDirection, corner)
+  )
+  const firstJointRight = add(
+    add(elbow, scale(firstNormal, -jointWidth)),
+    scale(firstDirection, -corner)
+  )
+  const innerControlA = add(secondJointRight, scale(secondDirection, -handle))
+  const innerControlB = add(firstJointRight, scale(firstDirection, handle))
+  const tipLeft = add(tip, scale(secondNormal, tipWidth))
+  const tipRight = add(tip, scale(secondNormal, -tipWidth))
+  const capLeft = add(tipLeft, scale(secondDirection, tipWidth * 1.34))
+  const capRight = add(tipRight, scale(secondDirection, tipWidth * 1.34))
+  const outline = [
+    rootLeft,
+    firstJointLeft,
+    outerControlA,
+    outerControlB,
+    secondJointLeft,
+    tipLeft,
+    capLeft,
+    capRight,
+    tipRight,
+    secondJointRight,
+    innerControlA,
+    innerControlB,
+    firstJointRight,
+    rootRight
+  ]
+  return {
+    d: [
+      `M ${pathPoint(rootLeft)}`,
+      `L ${pathPoint(firstJointLeft)}`,
+      `C ${pathPoint(outerControlA)} ${pathPoint(outerControlB)} ${pathPoint(secondJointLeft)}`,
+      `L ${pathPoint(tipLeft)}`,
+      `C ${pathPoint(capLeft)} ${pathPoint(capRight)} ${pathPoint(tipRight)}`,
+      `L ${pathPoint(secondJointRight)}`,
+      `C ${pathPoint(innerControlA)} ${pathPoint(innerControlB)} ${pathPoint(firstJointRight)}`,
+      `L ${pathPoint(rootRight)}`,
+      'Z'
+    ].join(' '),
+    outline
+  }
 }
 
 /**
- * Builds four filled Bezier limbs. Their roots sit under the body, so the body
- * hides the seam while the tapered tips remain expressive and logo-like.
+ * Builds four filled limbs. Each family's name describes its construction, and
+ * every root extends deep beneath the body so animation cannot expose the seam.
  */
 export function designKumoAttachments(
   base: readonly KumoAttachment[],
@@ -237,7 +400,6 @@ export function designKumoAttachments(
 ): KumoLegGeometry[] {
   const design = normalizeKumoDesign(value)
   const { sx, sy } = kumoBodyAxes(design)
-  const metrics = STYLE_METRICS[design.legStyle]
 
   return DEFAULT_KUMO_LEGS.map((fallback, index) => {
     const authored = design.legs[index] ?? base[index] ?? fallback
@@ -247,76 +409,46 @@ export function designKumoAttachments(
     const tangent = normal(radial)
     const edge =
       1 / Math.sqrt((radial.x * radial.x) / (sx * sx) + (radial.y * radial.y) / (sy * sy))
-    const root = scale(radial, edge * 0.74)
+    const root = scale(radial, edge * 0.38)
+    const shoulder = scale(radial, edge * 0.68)
     const length = 0.56 * design.legLength * leg.reach
-    const curl = leg.bend * length * 0.52 * metrics.curl
-    const elbow = add(add(root, scale(radial, length * 0.52)), scale(tangent, curl))
-    const tip = add(add(root, scale(radial, length)), scale(tangent, curl * 0.34))
-
-    const firstDirection = unit(point(elbow.x - root.x, elbow.y - root.y))
-    const secondDirection = unit(point(tip.x - elbow.x, tip.y - elbow.y))
-    const middleDirection = unit(add(firstDirection, secondDirection))
-    const rootNormal = normal(firstDirection)
-    const elbowNormal = normal(middleDirection)
-    const tipNormal = normal(secondDirection)
-    const thickness = design.legThickness
-    const rootWidth = metrics.root * thickness
-    const elbowWidth = metrics.elbow * thickness
-    const tipWidth = metrics.tip * thickness
-
-    const rootLeft = add(root, scale(rootNormal, rootWidth))
-    const rootRight = add(root, scale(rootNormal, -rootWidth))
-    const elbowLeft = add(elbow, scale(elbowNormal, elbowWidth))
-    const elbowRight = add(elbow, scale(elbowNormal, -elbowWidth))
-    const tipLeft = add(tip, scale(tipNormal, tipWidth))
-    const tipRight = add(tip, scale(tipNormal, -tipWidth))
-    const firstControl = add(mix(root, elbow, 0.5), scale(tangent, curl * 0.12))
-    const secondControl = add(mix(elbow, tip, 0.5), scale(tangent, curl * 0.08))
-    const firstControlLeft = add(firstControl, scale(rootNormal, elbowWidth))
-    const firstControlRight = add(firstControl, scale(rootNormal, -elbowWidth))
-    const secondControlLeft = add(secondControl, scale(tipNormal, elbowWidth))
-    const secondControlRight = add(secondControl, scale(tipNormal, -elbowWidth))
-    const capReach = tipWidth * metrics.cap
-    const capLeft = add(tipLeft, scale(secondDirection, capReach))
-    const capRight = add(tipRight, scale(secondDirection, capReach))
-    const outline = [
-      rootLeft,
-      firstControlLeft,
-      elbowLeft,
-      secondControlLeft,
-      tipLeft,
-      capLeft,
-      capRight,
-      tipRight,
-      secondControlRight,
-      elbowRight,
-      firstControlRight,
-      rootRight
-    ]
-
-    const sides = [
-      `C ${pathPoint(firstControlLeft)} ${pathPoint(secondControlLeft)} ${pathPoint(tipLeft)}`,
-      `C ${pathPoint(capLeft)} ${pathPoint(capRight)} ${pathPoint(tipRight)}`,
-      `C ${pathPoint(secondControlRight)} ${pathPoint(firstControlRight)} ${pathPoint(rootRight)}`
-    ]
+    const bend = leg.bend * length
+    const elbow = add(
+      add(shoulder, scale(radial, length * 0.5)),
+      scale(tangent, bend * (design.legStyle === 'knuckle' ? 0.42 : 0.32))
+    )
+    const tip = add(add(shoulder, scale(radial, length)), scale(tangent, bend * 0.08))
+    const geometry =
+      design.legStyle === 'taper'
+        ? taperedLegPath(root, elbow, tip, design.legThickness)
+        : design.legStyle === 'paddle'
+          ? paddleLegPath(root, elbow, tip, design.legThickness)
+          : knuckleLegPath(root, elbow, tip, design.legThickness)
 
     return {
       ...leg,
-      d: [`M ${pathPoint(rootLeft)}`, ...sides, 'Z'].join(' '),
-      pivotX: root.x,
-      pivotY: root.y,
+      d: geometry.d,
+      knuckle:
+        design.legStyle === 'knuckle'
+          ? { root, elbow, tip, thickness: design.legThickness }
+          : undefined,
+      pivotX: shoulder.x,
+      pivotY: shoulder.y,
+      jointX: elbow.x,
+      jointY: elbow.y,
       tipX: tip.x,
       tipY: tip.y,
-      minX: Math.min(...outline.map((p) => p.x)),
-      minY: Math.min(...outline.map((p) => p.y)),
-      maxX: Math.max(...outline.map((p) => p.x)),
-      maxY: Math.max(...outline.map((p) => p.y))
+      minX: Math.min(...geometry.outline.map((p) => p.x)),
+      minY: Math.min(...geometry.outline.map((p) => p.y)),
+      maxX: Math.max(...geometry.outline.map((p) => p.x)),
+      maxY: Math.max(...geometry.outline.map((p) => p.y))
     }
   })
 }
 
 export interface KumoLegMotionPose {
   rotation: number
+  jointRotation: number
   reach: number
 }
 
@@ -351,17 +483,65 @@ export function kumoLegMotionAt(
   value: KumoMotion
 ): KumoLegMotionPose {
   const motion = normalizeKumoMotion(value)
-  if (motion.amount === 0) return { rotation: 0, reach: 0 }
+  if (motion.amount === 0) return { rotation: 0, jointRotation: 0, reach: 0 }
   const t = Math.max(0, finite(time, 0)) * motion.speed
+  const rhythm: Record<KumoMotionRhythm, { cadence: number; amplitude: number }> = {
+    flow: { cadence: 1, amplitude: 0.88 },
+    breathe: { cadence: 0.72, amplitude: 0.72 },
+    skitter: { cadence: 2.15, amplitude: 1 },
+    doze: { cadence: 0.52, amplitude: 0.52 }
+  }
+  const { cadence, amplitude } = rhythm[motion.rhythm]
+  const pairPhase = [0, Math.PI, 0, Math.PI][index] ?? index * Math.PI * 0.5
+  const direction = [-1, 1, -1, 1][index] ?? (index % 2 ? 1 : -1)
+  const cycle = t * ((Math.PI * 2) / 3.4) * cadence
   const seed = [0.35, 2.15, 4.3, 5.85][index] ?? index * 1.7
-  const broad = loopNoise(t, 3.1 + index * 0.23, seed)
-  const detail = loopNoise(t, 1.7 + index * 0.17, seed + 1.9)
+  const pairedStep = Math.sin(cycle + pairPhase)
+  const followThrough = Math.sin(cycle * 0.52 + pairPhase * 0.35 + index * 0.22)
+  const detail = loopNoise(t, 5.2 + index * 0.31, seed) * 0.65
+  const jointPulse = Math.sin(cycle * 1.18 + pairPhase + 0.82)
+  const jointDetail = loopNoise(t, 4.35 + index * 0.27, seed + 1.65)
   const envelope = kumoMotionEnvelope(t, motion.rhythm)
   return {
-    rotation: (broad * 13 + detail * 3.5) * motion.amount * envelope,
-    reach:
-      loopNoise(t, 4.2 + index * 0.19, seed + 3.2) * 0.035 * motion.amount * envelope
+    rotation:
+      (pairedStep * direction * 3.4 + followThrough * 1.15 + detail) *
+      amplitude *
+      motion.amount *
+      envelope,
+    // A second, slightly delayed beat flexes the distal bone instead of moving
+    // the whole Knuckle as one rigid checkmark.
+    jointRotation:
+      (jointPulse * direction * -5.4 + jointDetail * 1.45) *
+      amplitude *
+      motion.amount *
+      envelope,
+    // The shoulder never translates: keeping its joint fixed prevents the root
+    // from peeking out when a state animation squashes or stretches the body.
+    reach: 0
   }
+}
+
+/**
+ * Rebuilds a Knuckle as one continuous outline after rotating its distal bone.
+ * Every frame keeps the same M/L/C command topology, so SVG can interpolate it.
+ */
+export function kumoLegPathAt(
+  attachment: KumoLegGeometry,
+  index: number,
+  time: number,
+  value: KumoMotion
+): string {
+  if (!attachment.knuckle) return attachment.d
+  const pose = kumoLegMotionAt(time, index, value)
+  if (pose.jointRotation === 0) return attachment.d
+  const { root, elbow, tip, thickness } = attachment.knuckle
+  const angle = (pose.jointRotation * Math.PI) / 180
+  const delta = point(tip.x - elbow.x, tip.y - elbow.y)
+  const rotatedTip = point(
+    elbow.x + delta.x * Math.cos(angle) - delta.y * Math.sin(angle),
+    elbow.y + delta.x * Math.sin(angle) + delta.y * Math.cos(angle)
+  )
+  return knuckleLegPath(root, elbow, rotatedTip, thickness).d
 }
 
 /** SVG transform applied around the leg's hidden shoulder joint. */

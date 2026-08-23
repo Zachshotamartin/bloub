@@ -7,6 +7,7 @@ import { COLORS, SHAPES } from '@/bot/skins'
 import {
   DEFAULT_KUMO_DESIGN,
   DEFAULT_KUMO_MOTION,
+  KUMO_EYE_COLORS,
   KUMO_LEG_STYLE_IDS,
   KUMO_MOTION_RHYTHM_IDS,
   KUMO_STANCES,
@@ -71,11 +72,13 @@ function newVariation() {
   const between = (min: number, max: number) => min + Math.random() * (max - min)
   const stance = KUMO_STANCES[Math.floor(Math.random() * KUMO_STANCES.length)]!
   const style = KUMO_LEG_STYLE_IDS[Math.floor(Math.random() * KUMO_LEG_STYLE_IDS.length)]!
+  const eyeColor = KUMO_EYE_COLORS[Math.floor(Math.random() * KUMO_EYE_COLORS.length)]!.hex
   kumoDesign.value = normalizeKumoDesign({
     bodyAspect: between(-0.85, 0.85),
     legLength: between(0.82, 1.22),
     legThickness: between(0.75, 1.24),
     legStyle: style,
+    eyeColor,
     legs: stance.legs.map((leg) => ({
       angle: leg.angle + between(-12, 12),
       reach: leg.reach * between(0.88, 1.12),
@@ -149,6 +152,33 @@ const PREVIEW_AT = 1
 
       <div class="mt-4">
         <h4 class="text-[11px] font-semibold tracking-wide text-[var(--muted)]">
+          {{ t('kumo.eyeColor') }}
+        </h4>
+        <div class="mt-2 flex flex-wrap gap-2">
+          <button
+            v-for="eye in KUMO_EYE_COLORS"
+            :key="eye.id"
+            type="button"
+            class="flex h-7 w-7 cursor-pointer items-center justify-center rounded-full border transition hover:scale-105 active:scale-95 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--ink)]"
+            :class="
+              kumoDesign.eyeColor === eye.hex
+                ? 'border-[var(--ink)]'
+                : 'border-transparent hover:border-[var(--line)]'
+            "
+            :aria-label="t(`kumo.eye_${eye.id}`)"
+            :aria-pressed="kumoDesign.eyeColor === eye.hex"
+            @click="setDesign('eyeColor', eye.hex)"
+          >
+            <span
+              class="h-5 w-5 rounded-full ring-1 ring-black/10 ring-inset"
+              :style="{ backgroundColor: eye.hex }"
+            />
+          </button>
+        </div>
+      </div>
+
+      <div class="mt-4">
+        <h4 class="text-[11px] font-semibold tracking-wide text-[var(--muted)]">
           {{ t('kumo.legLanguage') }}
         </h4>
         <div class="mt-1.5 grid grid-cols-3 gap-1 rounded-xl bg-black/[0.035] p-1">
@@ -168,6 +198,9 @@ const PREVIEW_AT = 1
             {{ t(`kumo.style_${style}`) }}
           </button>
         </div>
+        <p class="mt-1.5 text-[11px] leading-snug text-[var(--muted)]">
+          {{ t(`kumo.style_${kumoDesign.legStyle}Help`) }}
+        </p>
       </div>
 
       <div class="mt-4">
