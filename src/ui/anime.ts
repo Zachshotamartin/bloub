@@ -1,5 +1,6 @@
 /**
- * Assemblage de l'animation exportee : un SVG dont les yeux sont animes en CSS.
+ * Assemblage de l'animation exportee : un SVG dont les yeux et les quatre
+ * pattes Kumo sont animes en CSS.
  *
  * Tout est pur — de la chaine vers de la chaine — donc testable en `node` comme le
  * reste de `src/ui/`. C'est la capture des images cles qui a besoin du DOM, et elle
@@ -16,23 +17,29 @@ function le(valeur: number, n: number): number[] {
 const ascii = (s: string) => Array.from(s, (c) => c.charCodeAt(0))
 
 /**
- * Injecte l'animation des yeux dans un SVG deja rendu.
+ * Injecte l'animation des yeux et, quand elles existent, des pattes dans un SVG deja rendu.
  *
  * On ne reconstruit PAS le dessin : on part du SVG que `BloubBot` a produit pour
  * la premiere image et on remplace le `transform` de chaque oeil par une classe
  * animee. Une seule source de dessin, donc aucune derive possible — c'est la
  * meme regle que pour l'export fixe.
  *
- * Seuls les yeux bougent, et c'est mesure : au repos la silhouette ne se deplace
+ * Les yeux et les pattes independantes bougent ; le corps, lui, ne se deplace
  * que de 1,17 unite sur un rayon de 100 en trois secondes, soit environ un pixel
  * et demi a la taille d'export. Le corps reste donc tel quel, ce qui rend le
- * fichier minuscule — tout le poids d'une animation du bot est dans son regard.
+ * fichier minuscule — tout le poids de l'animation tient dans les matrices des
+ * yeux et des pattes.
  *
  * L'interpolation est faite par le NAVIGATEUR : c'est ce qui rend l'animation
  * lisse a la frequence de l'ecran au lieu de sauter d'image en image comme un
  * feuilletage. C'est tout l'interet par rapport a un WebP ou un GIF.
  */
-export function svgAnime(base: string, matrices: string[][], duree: number): string {
+export function svgAnime(
+  base: string,
+  matrices: string[][],
+  duree: number,
+  pattes: string[][] = []
+): string {
   if (matrices.length < 2) throw new Error('il faut au moins deux images cles')
 
   const mask = base.match(/<mask[\s\S]*?<\/mask>/)
@@ -55,12 +62,54 @@ export function svgAnime(base: string, matrices: string[][], duree: number): str
     return `@keyframes oeil${oeil}{${etapes}}`
   })
 
+  let anime = base.replace(mask[0], maskAnime)
+
+  // Kumo paints its dark eyes over the mask holes. They must share the exact
+  // same class as their matching mask paths or an animated SVG would show a
+  // moving cut-out underneath a static dark eye.
+  anime = anime.replace(/<path\b[^>]*data-kumo-eye="(\d+)"[^>]*>/g, (tag, raw) => {
+    const index = Number(raw)
+    return tag.replace(/transform="matrix\([^)]*\)"/, `class="oeil${index}"`)
+  })
+
+  const parPatte = pattes[0]?.length ?? 0
+  if (pattes.length && pattes.length !== matrices.length) {
+    throw new Error(`${matrices.length} images d yeux, ${pattes.length} images de pattes`)
+  }
+  for (const image of pattes) {
+    if (image.length !== parPatte) throw new Error('nombre de pattes variable entre les images')
+  }
+
+  let trouvees = 0
+  if (parPatte) {
+    anime = anime.replace(/<g\b[^>]*data-kumo-leg="(\d+)"[^>]*>/g, (tag, raw) => {
+      const index = Number(raw)
+      trouvees++
+      return tag.replace(/transform="[^"]*"/, `class="patte${index}"`)
+    })
+    if (trouvees !== parPatte) {
+      throw new Error(`${trouvees} pattes dans le SVG, ${parPatte} par image cle`)
+    }
+  }
+
+  const reglesPattes = Array.from({ length: parPatte }, (_, patte) => {
+    const etapes = pattes
+      .map((m, i) => `${+(i * pas).toFixed(3)}%{transform:${m[patte]}}`)
+      .join('')
+    return `@keyframes patte${patte}{${etapes}}`
+  })
+
+  const classes = [
+    ...Array.from({ length: n }, (_, i) => `.oeil${i}`),
+    ...Array.from({ length: parPatte }, (_, i) => `.patte${i}`)
+  ].join(',')
+
   const style =
     '<style>' +
     // `transform-box`/`transform-origin` ne sont pas decoratifs : sans eux, une
     // transformation CSS sur un element SVG tourne autour du centre de sa boite
     // au lieu de l'origine du repere, et l'oeil part a l'autre bout de la boule.
-    `.oeil0,.oeil1{transform-box:view-box;transform-origin:0 0;` +
+    `${classes}{transform-box:view-box;transform-origin:0 0;` +
     // `alternate` donne une boucle SANS COUTURE : la derive du regard n'est pas
     // periodique (ses periodes sont premieres entre elles pour ne jamais se
     // repeter), donc une boucle simple montrerait un saut au raccord. Jouee puis
@@ -69,10 +118,12 @@ export function svgAnime(base: string, matrices: string[][], duree: number): str
     `animation-duration:${duree}s;animation-iteration-count:infinite;` +
     `animation-timing-function:linear;animation-direction:alternate}` +
     Array.from({ length: n }, (_, i) => `.oeil${i}{animation-name:oeil${i}}`).join('') +
+    Array.from({ length: parPatte }, (_, i) => `.patte${i}{animation-name:patte${i}}`).join('') +
     regles.join('') +
+    reglesPattes.join('') +
     '</style>'
 
-  return base.replace(mask[0], maskAnime).replace('</svg>', `${style}</svg>`)
+  return anime.replace('</svg>', `${style}</svg>`)
 }
 
 /* ------------------------------------------------------------------- gif */

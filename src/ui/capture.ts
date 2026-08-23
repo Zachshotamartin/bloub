@@ -13,8 +13,9 @@
 import { createApp, h, nextTick, ref } from 'vue'
 import BloubBot from '@/components/BloubBot.vue'
 import type { Block } from '@/bot/cycles'
+import type { KumoDesign, KumoMotion } from '@/bot/kumo'
 import { gifAnime, gifIndexe, indexe, nouvellePalette, recense, svgAnime } from './anime'
-import { arrete, DEMI_ECRAN, sansCommentaires, viewBoxExport } from './export'
+import { arrete, DEMI_ECRAN, sansCommentaires, viewBoxAvatar, viewBoxExport } from './export'
 
 /**
  * Serialise le SVG affiche en un document autonome, recadre sur la boule.
@@ -246,6 +247,8 @@ export interface ReglagesBot {
   shape: string
   color: string
   expression: string
+  kumoDesign?: KumoDesign
+  legMotion?: KumoMotion
 }
 
 /**
@@ -386,12 +389,17 @@ function matricesDesYeux(svg: SVGSVGElement) {
   return [...svg.querySelectorAll('mask [transform]')].map((e) => e.getAttribute('transform')!)
 }
 
+/** Transformations of the four independent Kumo leg groups, in stable index order. */
+function transformationsDesPattes(svg: SVGSVGElement) {
+  return [...svg.querySelectorAll('[data-kumo-leg]')].map((e) => e.getAttribute('transform')!)
+}
+
 /**
  * Assemble l'animation du bot en un SVG anime.
  *
  * Le corps est celui de la premiere image et n'est pas anime : au repos la
  * silhouette ne se deplace que de 1,17 unite sur un rayon de 100, soit environ un
- * pixel et demi. Tout le mouvement est dans les yeux.
+ * pixel et demi. Les matrices des yeux et des pattes portent le mouvement utile.
  */
 export async function versSvgAnime(
   reglages: ReglagesBot,
@@ -400,11 +408,16 @@ export async function versSvgAnime(
   pas: number
 ): Promise<Blob> {
   let base = ''
-  const matrices = await sequenceDuBot(reglages, taille, nombre, pas, (svg, i) => {
-    if (i === 0) base = svgAutonome(svg, taille)
-    return matricesDesYeux(svg)
+  const images = await sequenceDuBot(reglages, taille, nombre, pas, (svg, i) => {
+    if (i === 0) base = svgAutonome(svg, taille, viewBoxAvatar(reglages.shape, reglages.kumoDesign))
+    return { eyes: matricesDesYeux(svg), legs: transformationsDesPattes(svg) }
   })
-  const markup = svgAnime(base, matrices, +((nombre - 1) * pas).toFixed(3))
+  const markup = svgAnime(
+    base,
+    images.map((image) => image.eyes),
+    +((nombre - 1) * pas).toFixed(3),
+    images.map((image) => image.legs)
+  )
   return new Blob([markup], { type: 'image/svg+xml' })
 }
 
@@ -432,7 +445,12 @@ export async function versGifAnime(
     nombre,
     pas,
     async (svg) => {
-      const ctx = await dessine(svgAutonome(svg, taille), taille, canvas, fond)
+      const ctx = await dessine(
+        svgAutonome(svg, taille, viewBoxAvatar(reglages.shape, reglages.kumoDesign)),
+        taille,
+        canvas,
+        fond
+      )
       return ctx.getImageData(0, 0, taille, taille).data
     },
     // les yeux prennent la teinte du fond pour s'y fondre exactement

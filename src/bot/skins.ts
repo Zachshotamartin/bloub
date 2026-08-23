@@ -6,6 +6,7 @@ import {
   superellipseProfile,
   unionOfCirclesProfile
 } from './shape'
+import type { KumoAttachment } from './kumo'
 
 /**
  * Formes et couleurs proposees par le personnalisateur du bot.
@@ -39,13 +40,7 @@ export interface BotShape {
   id: ShapeId
   radii: number[]
   /** Elements de marque dessines derriere le corps principal, en unites de rayon. */
-  attachments?: Array<{
-    cx: number
-    cy: number
-    rx: number
-    ry: number
-    rotation: number
-  }>
+  attachments?: KumoAttachment[]
   /** Le logo Kumo porte un trait et un visage sombres, independants de son aplat. */
   outline?: { color: string; width: number }
   eyeColor?: string
@@ -80,8 +75,9 @@ const cloud = normalize(
 )
 
 /**
- * Marque Kumo : un grand corps rond et quatre pattes courtes, comme une petite
- * araignee asymetrique.
+ * Point de depart Kumo : un grand corps rond et quatre pattes courtes. Ces
+ * valeurs sont un GABARIT, pas le dessin final : `kumo.ts` les transforme selon
+ * les proportions choisies par l'utilisateur.
  *
  * Les quatre pattes restent des ellipses distinctes (`attachments`) : les forcer
  * dans le profil radial les relierait au centre par des pointes. Le profil ne

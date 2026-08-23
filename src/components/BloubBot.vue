@@ -19,6 +19,16 @@ import {
 import { blockAt, defaultCycle, offsetOf, type Block } from '@/bot/cycles'
 import { DEMI_VIEWBOX, RAYON } from '@/bot/repere'
 import { STATE_BY_ID, type StateId } from '@/bot/states'
+import {
+  DEFAULT_KUMO_DESIGN,
+  DEFAULT_KUMO_MOTION,
+  designKumoAttachments,
+  designKumoBody,
+  kumoLegTransform,
+  type KumoAttachment,
+  type KumoDesign,
+  type KumoMotion
+} from '@/bot/kumo'
 
 const props = withDefaults(
   defineProps<{
@@ -55,6 +65,10 @@ const props = withDefaults(
      * ici c'est le script qui decide de tout, y compris de sa duree.
      */
     gaze?: GazeScript | null
+    /** Proportions of the generated four-legged Kumo silhouette. */
+    kumoDesign?: KumoDesign
+    /** Amount and speed of deterministic autonomous leg motion. */
+    legMotion?: KumoMotion
   }>(),
   {
     size: 320,
@@ -65,7 +79,9 @@ const props = withDefaults(
     frozenAt: undefined,
     cycle: () => defaultCycle().blocks,
     follow: false,
-    gaze: null
+    gaze: null,
+    kumoDesign: () => ({ ...DEFAULT_KUMO_DESIGN }),
+    legMotion: () => ({ ...DEFAULT_KUMO_MOTION })
   }
 )
 
@@ -88,7 +104,18 @@ const R = RAYON
 const VB = DEMI_VIEWBOX
 
 const skin = computed(() => SHAPE_BY_ID.get(props.shape) ?? null)
-const shapeRadii = computed(() => skin.value?.radii ?? null)
+const shapeRadii = computed(() => {
+  const selected = skin.value
+  if (!selected) return null
+  return selected.id === 'kumo' ? designKumoBody(selected.radii, props.kumoDesign) : selected.radii
+})
+const attachments = computed(() => {
+  const selected = skin.value
+  if (!selected?.attachments) return []
+  return selected.id === 'kumo'
+    ? designKumoAttachments(selected.attachments, props.kumoDesign)
+    : selected.attachments
+})
 const ink = computed(() => COLOR_BY_ID.get(props.color)?.hex ?? '#0a0a0c')
 const expression = computed(() => EXPRESSION_BY_ID.get(props.expression) ?? null)
 const bodyUsesSkin = computed(() => STATE_BY_ID.get(state.value)?.baseBody ?? false)
@@ -99,6 +126,8 @@ const bodyTransform = computed(() => {
 
 const engine = new BotEngine(R, state.value, shapeRadii.value, expression.value)
 const frame = shallowRef<BotFrame>(engine.sample(props.frozenAt ?? 0))
+/** Time of the rendered frame; leg motion is pure and uses the same export clock. */
+const renderedAt = ref(props.frozenAt ?? 0)
 const uid = Math.random().toString(36).slice(2, 8)
 const maskId = `bot-mask-${uid}`
 
@@ -186,6 +215,7 @@ function rendAt(t: number) {
     else engine.setState(b.state, offsetOf(blocs, index))
     dernierBloc = index
   }
+  renderedAt.value = t
   frame.value = engine.sample(t)
   triggerRef(frame)
 }
@@ -347,6 +377,7 @@ function tick(ms: number) {
   if (props.follow) aim()
   else if (props.gaze) scriptedGaze(props.gaze)
 
+  renderedAt.value = clock
   frame.value = engine.sample(clock)
   triggerRef(frame)
 }
@@ -354,6 +385,7 @@ function tick(ms: number) {
 /** Redessine sans la boucle : sert aux vignettes figees quand la forme change. */
 function redrawFrozen() {
   if (props.frozenAt === undefined) return
+  renderedAt.value = props.frozenAt
   frame.value = engine.sample(props.frozenAt)
   triggerRef(frame)
 }
@@ -486,6 +518,10 @@ function dotAttrs(dot: BotFrame['dots'][number]) {
       }
     : { ...common, cx: dot.x, cy: dot.y, r: dot.r }
 }
+
+function legTransform(attachment: KumoAttachment, index: number) {
+  return kumoLegTransform(attachment, index, renderedAt.value, props.legMotion, R)
+}
 </script>
 
 <template>
@@ -571,28 +607,33 @@ function dotAttrs(dot: BotFrame['dots'][number]) {
     </g>
 
     <!--
-      Les quatre pattes du logo Kumo sont des formes distinctes, comme dans la
-      source de `../Kumo`. Elles suivent exactement la transformation du corps mais restent
-      derriere lui, de sorte que les jonctions et le contour restent propres.
+      Les quatre pattes generees restent des formes distinctes. Elles suivent la
+      transformation du corps, puis recoivent chacune leur mouvement organique,
+      tout en restant derriere lui pour garder les jonctions propres.
     -->
     <g
-      v-if="bodyUsesSkin && skin?.attachments?.length"
+      v-if="bodyUsesSkin && attachments.length"
       :opacity="frame.bodyAlpha"
       :transform="bodyTransform"
     >
-      <ellipse
-        v-for="(attachment, i) in skin.attachments"
+      <g
+        v-for="(attachment, i) in attachments"
         :key="`skin-${i}`"
-        :cx="attachment.cx * R"
-        :cy="attachment.cy * R"
-        :rx="attachment.rx * R"
-        :ry="attachment.ry * R"
-        :transform="`rotate(${attachment.rotation} ${attachment.cx * R} ${attachment.cy * R})`"
-        :fill="ink"
-        :stroke="skin.outline?.color"
-        :stroke-width="skin.outline?.width"
-        stroke-linejoin="round"
-      />
+        :data-kumo-leg="i"
+        :transform="legTransform(attachment, i)"
+      >
+        <ellipse
+          :cx="attachment.cx * R"
+          :cy="attachment.cy * R"
+          :rx="attachment.rx * R"
+          :ry="attachment.ry * R"
+          :transform="`rotate(${attachment.rotation} ${attachment.cx * R} ${attachment.cy * R})`"
+          :fill="ink"
+          :stroke="skin?.outline?.color"
+          :stroke-width="skin?.outline?.width"
+          stroke-linejoin="round"
+        />
+      </g>
     </g>
 
     <g :opacity="frame.bodyAlpha">
@@ -626,6 +667,7 @@ function dotAttrs(dot: BotFrame['dots'][number]) {
       <path
         v-for="(eye, i) in bodyUsesSkin && skin?.eyeColor ? frame.eyes : []"
         :key="`skin-eye-${i}`"
+        :data-kumo-eye="i"
         :d="eye.d"
         :transform="eye.matrix"
         :opacity="eye.alpha"

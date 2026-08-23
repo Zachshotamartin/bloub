@@ -3,12 +3,19 @@ import { ref } from 'vue'
 import BotTile from '@/components/BotTile.vue'
 import { POSES, SEQUENCE, STATE_BY_ID, type StateId } from '@/bot/states'
 import { t } from '@/i18n'
+import type { KumoDesign, KumoMotion } from '@/bot/kumo'
 
 /**
  * Carte « + » de la piste et sa palette. Ajouter depuis la piste evite d'aller
  * jusqu'au panneau de droite quand on monte.
  */
-defineProps<{ shape: string; color: string; expression: string }>()
+defineProps<{
+  shape: string
+  color: string
+  expression: string
+  kumoDesign: KumoDesign
+  legMotion: KumoMotion
+}>()
 const emit = defineEmits<{ pick: [state: StateId] }>()
 
 /** Les animations dans l'ordre de la video. */
@@ -104,6 +111,8 @@ function pick(state: StateId) {
         :shape="shape"
         :color="color"
         :expression="expression"
+        :kumo-design="kumoDesign"
+        :leg-motion="legMotion"
         :frozen-at="POSES[s.id]"
         @click="pick(s.id)"
       />

@@ -5,7 +5,13 @@
  */
 
 import { DEMI_VIEWBOX, RAYON } from '@/bot/repere'
-import { SHAPES } from '@/bot/skins'
+import { SHAPES, SHAPE_BY_ID } from '@/bot/skins'
+import {
+  DEFAULT_KUMO_DESIGN,
+  designKumoAttachments,
+  designKumoBody,
+  type KumoDesign
+} from '@/bot/kumo'
 
 /**
  * Marge autour de la forme la plus large. Huit pour cent : c'est ce qui permet
@@ -50,6 +56,21 @@ export const DEMI_CADRE = Math.ceil(RAYON * RAYON_MAX * MARGE)
 /** viewBox du document exporte, centre sur la boule. */
 export function viewBoxExport(demi = DEMI_CADRE) {
   return `${-demi} ${-demi} ${demi * 2} ${demi * 2}`
+}
+
+/**
+ * Tight export frame for the currently generated silhouette. Kumo needs its
+ * own calculation because the user's leg controls can exceed the base preset.
+ * The extra 0.06 radius units cover the animated joint reach and outline.
+ */
+export function viewBoxAvatar(shape: string, design: KumoDesign = DEFAULT_KUMO_DESIGN) {
+  const selected = SHAPE_BY_ID.get(shape)
+  if (selected?.id !== 'kumo' || !selected.attachments) return viewBoxExport()
+  const body = Math.max(...designKumoBody(selected.radii, design))
+  const legs = designKumoAttachments(selected.attachments, design).map(
+    (leg) => Math.max(Math.abs(leg.cx), Math.abs(leg.cy)) + Math.hypot(leg.rx, leg.ry) + 0.06
+  )
+  return viewBoxExport(Math.ceil(RAYON * Math.max(body, ...legs) * MARGE))
 }
 
 /**

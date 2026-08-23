@@ -1,13 +1,13 @@
 # Kumo Logo Studio
 
 An interactive builder for Kumo's four-legged, spider-like logo. The default
-mark combines a round gray body, four editable vector legs, a dark face and a
-clean outline; its shape, expression, colour and animation can all be changed
+mark combines a configurable gray body, four editable vector legs, a dark face
+and a clean outline. Body proportions, leg geometry, movement, expression and colour can all be changed
 before exporting PNG, SVG, animated SVG, GIF or MP4.
 
 The animation engine comes from the original `bloub` project: one radial SVG
 body morphing through 14 measured states, with independently animated eyes and
-no animation library.
+four deterministic moving legs, and no animation library.
 
 ![The avatar going through idle, wink, orbit and burst](docs/demo.gif)
 
@@ -31,8 +31,9 @@ only gate, so run `pnpm build` before you call something done.
 
 ## What's in it
 
-The rail on the left switches between three views. **Customise** offers 8 body
-shapes, 12 colours and 16 rest expressions, kept between visits. **Animations** is
+The rail on the left switches between three views. **Customise** offers a
+four-legged silhouette generator plus 8 alternate body shapes, 12 colours and
+16 rest expressions, kept between visits. **Animations** is
 a small editor: arrange states into a timeline, set how long each is held, save the
 result. **Settings** holds the language (French, English or Chinese) and the
 credits.
@@ -98,8 +99,8 @@ index is what identifies where you are; `state` follows it as an output. Pass
 `frozenAt` and the component renders one exact frame with no animation loop, which
 is how the thumbnails and the state board are drawn.
 
-Props: `size`, `shape`, `color`, `expression`, `paper`, `frozenAt`, `cycle`,
-`follow`, `gaze`. Models: `block`, `state`, `playing`, `elapsed`. See
+Props: `size`, `shape`, `color`, `expression`, `kumoDesign`, `legMotion`, `paper`,
+`frozenAt`, `cycle`, `follow`, `gaze`. Models: `block`, `state`, `playing`, `elapsed`. See
 [BloubBot.vue](src/components/BloubBot.vue) for the details.
 
 ## Changes
