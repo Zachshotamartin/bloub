@@ -12,9 +12,9 @@ import type fr from './fr'
  */
 const zh: typeof fr = {
   app: {
-    name: 'bloub',
-    title: 'bloub — 动画 SVG 头像',
-    botAria: 'bloub 动画头像'
+    name: 'Kumo 标志工作室',
+    title: 'Kumo — 动画标志工作室',
+    botAria: 'Kumo 动画标志预览'
   },
 
   gallery: {
@@ -23,14 +23,14 @@ const zh: typeof fr = {
 
   rail: {
     nav: '版块',
-    customize: '个性化',
+    customize: '创建标志',
     animations: '动画',
     settings: '设置'
   },
 
   panel: {
     animations: '动画',
-    shape: '形状',
+    shape: '身体和腿',
     expression: '表情',
     color: '颜色'
   },
@@ -136,6 +136,7 @@ const zh: typeof fr = {
   },
 
   shapes: {
+    kumo: 'Kumo 蜘蛛',
     cercle: '圆形',
     galet: '卵石',
     squircle: '圆角方形',
@@ -147,6 +148,7 @@ const zh: typeof fr = {
   },
 
   colors: {
+    kumo: 'Kumo 灰',
     encre: '墨黑',
     creme: '奶油白',
     brun: '棕色',

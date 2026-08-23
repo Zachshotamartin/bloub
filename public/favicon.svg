@@ -1,38 +1,13 @@
-<!--
-  Le bot au repos, pas un dessin approchant : le corps est le cercle parfait de
-  rayon 100 et les deux matrices d'yeux sont celles produites par
-  `engine.sample(1)` sur l'etat `idle` (repere tangent de la sphere compris).
-  D'ou l'oeil de droite plus etroit que celui de gauche (0,64 contre 0,87) :
-  c'est la compression de profondeur, pas une faute de frappe.
-
-  Les yeux sont des trous, comme dans l'application : le fond de l'onglet passe
-  au travers. Le corps s'inverse en theme sombre, sinon un disque noir disparait
-  sur une barre d'onglets noire.
--->
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="-108 -108 216 216">
-  <style>
-    .corps {
-      fill: #0a0a0c;
-    }
-
-    @media (prefers-color-scheme: dark) {
-      .corps {
-        fill: #f9f9f9;
-      }
-    }
-  </style>
-
-  <mask id="yeux">
-    <circle r="100" fill="#fff" />
-    <path
-      d="M-9.3 -11.3A9.3 9.3 0 0 1 0 -20.6L0 -20.6A9.3 9.3 0 0 1 9.3 -11.3L9.3 11.3A9.3 9.3 0 0 1 0 20.6L0 20.6A9.3 9.3 0 0 1 -9.3 11.3Z"
-      transform="matrix(0.87,-0.33,0.45,0.84,21.42,-43.32)"
-    />
-    <path
-      d="M-9.3 -11.3A9.3 9.3 0 0 1 0 -20.6L0 -20.6A9.3 9.3 0 0 1 9.3 -11.3L9.3 11.3A9.3 9.3 0 0 1 0 20.6L0 20.6A9.3 9.3 0 0 1 -9.3 11.3Z"
-      transform="matrix(0.64,-0.06,0.45,0.84,62.98,-53.9)"
-    />
-  </mask>
-
-  <circle r="100" class="corps" mask="url(#yeux)" />
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="-145 -145 290 290">
+  <g fill="#d9d9d9" stroke="#111318" stroke-width="4" stroke-linejoin="round">
+    <ellipse cx="62" cy="-75" rx="19" ry="27" transform="rotate(52 62 -75)" />
+    <ellipse cx="94" cy="-28" rx="28" ry="18" transform="rotate(4 94 -28)" />
+    <ellipse cx="-82" cy="68" rx="18" ry="27" transform="rotate(36 -82 68)" />
+    <ellipse cx="-42" cy="96" rx="21" ry="28" transform="rotate(4 -42 96)" />
+    <circle cx="-5" cy="-4" r="98" />
+  </g>
+  <g fill="#111318">
+    <rect x="19" y="-38" width="18" height="42" rx="9" transform="rotate(-25 28 -17)" />
+    <rect x="57" y="-53" width="18" height="42" rx="9" transform="rotate(-25 66 -32)" />
+  </g>
 </svg>

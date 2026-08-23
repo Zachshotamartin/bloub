@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { BotEngine, type RenderedEye } from './engine'
 import { decalageDesYeux, POUR_TESTS } from './eyefit'
 import { EXPRESSIONS } from './expressions'
-import { DEFAULT_SHAPE, SHAPES, SHAPE_BY_ID } from './skins'
+import { DEFAULT_COLOR, DEFAULT_SHAPE, SHAPES, SHAPE_BY_ID } from './skins'
 import { STATES, type StateId } from './states'
 
 /**
@@ -125,6 +125,12 @@ const CORPS_DE_BASE = STATES.filter((s) => s.baseBody).map((s) => s.id)
 const SILHOUETTE_MESUREE = STATES.filter((s) => !s.baseBody).map((s) => s.id)
 
 describe('formes du personnalisateur', () => {
+  it('ouvre sur la marque Kumo a quatre pattes', () => {
+    expect(DEFAULT_SHAPE).toBe('kumo')
+    expect(DEFAULT_COLOR).toBe('kumo')
+    expect(SHAPE_BY_ID.get('kumo')?.attachments).toHaveLength(4)
+  })
+
   // 680 combinaisons x 60 instants x deux contours : le test le plus lourd du depot, et le
   // seul qui prouve ce que l'oeil voit.
   it("aucune forme ne laisse un oeil sortir de la silhouette", () => {
@@ -154,7 +160,6 @@ describe('formes du personnalisateur', () => {
    * `idle`, au byte.
    */
   it('choisir le cercle rend exactement la meme chose que ne rien choisir', () => {
-    expect(DEFAULT_SHAPE).toBe('cercle')
     const cercle = SHAPE_BY_ID.get('cercle')!.radii
     for (const state of CORPS_DE_BASE) {
       for (const expr of [null, ...EXPRESSIONS]) {

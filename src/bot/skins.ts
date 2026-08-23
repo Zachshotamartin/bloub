@@ -25,6 +25,7 @@ import {
  * rendrait `radii` en lecture seule, alors que le moteur le passe tel quel.
  */
 export type ShapeId =
+  | 'kumo'
   | 'cercle'
   | 'galet'
   | 'squircle'
@@ -37,6 +38,17 @@ export type ShapeId =
 export interface BotShape {
   id: ShapeId
   radii: number[]
+  /** Elements de marque dessines derriere le corps principal, en unites de rayon. */
+  attachments?: Array<{
+    cx: number
+    cy: number
+    rx: number
+    ry: number
+    rotation: number
+  }>
+  /** Le logo Kumo porte un trait et un visage sombres, independants de son aplat. */
+  outline?: { color: string; width: number }
+  eyeColor?: string
 }
 
 /** Ramene le rayon maximal a `max` pour que toutes les formes pesent pareil a l'oeil. */
@@ -67,6 +79,20 @@ const cloud = normalize(
   1.02
 )
 
+/**
+ * Marque Kumo : un grand corps rond et quatre pattes courtes, comme une petite
+ * araignee asymetrique.
+ *
+ * Les quatre pattes restent des ellipses distinctes (`attachments`) : les forcer
+ * dans le profil radial les relierait au centre par des pointes. Le profil ne
+ * porte donc que le corps, ce qui preserve aussi les morphs du moteur et laisse
+ * chaque morceau du SVG exporte editable.
+ */
+const kumo = normalize(
+  unionOfCirclesProfile([{ x: -0.05, y: -0.04, r: 0.98 }]),
+  1.02
+)
+
 /** Goutte : gros disque en bas, pointe effilee en haut. */
 const droplet = normalize(
   profileFromPolygon(hullOfCircles(0, 0.28, 0.66, 0, -0.96, 0.05), 0, 0),
@@ -77,6 +103,18 @@ const droplet = normalize(
 const capsule = profileFromPolygon(hullOfCircles(-0.42, 0, 0.62, 0.42, 0, 0.62), 0, 0)
 
 export const SHAPES: BotShape[] = [
+  {
+    id: 'kumo',
+    radii: kumo,
+    attachments: [
+      { cx: 0.62, cy: -0.75, rx: 0.19, ry: 0.27, rotation: 52 },
+      { cx: 0.94, cy: -0.28, rx: 0.28, ry: 0.18, rotation: 4 },
+      { cx: -0.82, cy: 0.68, rx: 0.18, ry: 0.27, rotation: 36 },
+      { cx: -0.42, cy: 0.96, rx: 0.21, ry: 0.28, rotation: 4 }
+    ],
+    outline: { color: '#111318', width: 3.5 },
+    eyeColor: '#111318'
+  },
   { id: 'cercle', radii: new Array(PROFILE_SAMPLES).fill(1) },
   { id: 'galet', radii: pebble },
   // 1.15 et pas 1.02 : sur une superellipse le rayon maximal est la diagonale,
@@ -94,9 +132,10 @@ export const SHAPES: BotShape[] = [
 // Map indexee par `string` et non par `ShapeId` : les appelants interrogent avec
 // une valeur relue du localStorage ou d'une prop, donc non validee.
 export const SHAPE_BY_ID = new Map<string, BotShape>(SHAPES.map((s) => [s.id, s]))
-export const DEFAULT_SHAPE = 'cercle'
+export const DEFAULT_SHAPE = 'kumo'
 
 export type ColorId =
+  | 'kumo'
   | 'encre'
   | 'creme'
   | 'brun'
@@ -117,6 +156,7 @@ export interface BotColor {
 
 /** Palette du personnalisateur d'origine. */
 export const COLORS: BotColor[] = [
+  { id: 'kumo', hex: '#d9d9d9' },
   { id: 'encre', hex: '#0a0a0c' },
   { id: 'brun', hex: '#8b5e3c' },
   { id: 'rouge', hex: '#e8483f' },
@@ -132,7 +172,7 @@ export const COLORS: BotColor[] = [
 ]
 
 export const COLOR_BY_ID = new Map<string, BotColor>(COLORS.map((c) => [c.id, c]))
-export const DEFAULT_COLOR = 'encre'
+export const DEFAULT_COLOR = 'kumo'
 
 /** Melange deux couleurs hex. Sert a la brume de profondeur des particules. */
 export function mixHex(from: string, to: string, t: number): string {

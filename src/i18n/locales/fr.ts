@@ -19,9 +19,9 @@ export default {
      * Un nom propre ne se traduit pas non plus. `title` sert de `document.title`.
      * Voir aussi le <title> de index.html, qui est statique.
      */
-    name: 'bloub',
-    title: 'bloub — avatar SVG animé',
-    botAria: 'Avatar bloub animé'
+    name: 'studio logo Kumo',
+    title: 'Kumo — studio de logo animé',
+    botAria: 'Aperçu animé du logo Kumo'
   },
 
   gallery: {
@@ -30,7 +30,7 @@ export default {
 
   rail: {
     nav: 'Sections',
-    customize: 'Personnaliser',
+    customize: 'Créer le logo',
     animations: 'Animations',
     settings: 'Réglages'
   },
@@ -42,7 +42,7 @@ export default {
      * qui nomme la vue et non le choix (`rail.animations`).
      */
     animations: 'Animation',
-    shape: 'Forme',
+    shape: 'Corps et pattes',
     expression: 'Expression',
     color: 'Couleur'
   },
@@ -158,6 +158,7 @@ export default {
   },
 
   shapes: {
+    kumo: 'Araignée Kumo',
     cercle: 'Cercle',
     galet: 'Galet',
     squircle: 'Squircle',
@@ -169,6 +170,7 @@ export default {
   },
 
   colors: {
+    kumo: 'Gris Kumo',
     encre: 'Encre',
     creme: 'Crème',
     brun: 'Brun',

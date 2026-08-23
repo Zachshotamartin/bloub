@@ -1,8 +1,13 @@
-# bloub
+# Kumo Logo Studio
 
-An SVG recreation of the x.ai bot avatar: **one filled black shape** that morphs
-between 14 states, **two white shapes** for the eyes that morph independently, on
-a plain background. No animation library.
+An interactive builder for Kumo's four-legged, spider-like logo. The default
+mark combines a round gray body, four editable vector legs, a dark face and a
+clean outline; its shape, expression, colour and animation can all be changed
+before exporting PNG, SVG, animated SVG, GIF or MP4.
+
+The animation engine comes from the original `bloub` project: one radial SVG
+body morphing through 14 measured states, with independently animated eyes and
+no animation library.
 
 ![The avatar going through idle, wink, orbit and burst](docs/demo.gif)
 
@@ -13,7 +18,8 @@ pnpm install
 pnpm dev
 ```
 
-Then open http://localhost:5190.
+Then open http://localhost:5190. Production is deployed at
+https://kumo-logo-studio.vercel.app/.
 
 ```bash
 pnpm test     # vitest
